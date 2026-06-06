@@ -13,6 +13,7 @@ class SettingsBottomSheet extends StatelessWidget {
   final bool isProfileComplete;
   final Map<String, dynamic>? fullUserData;
   final BuildContext parentContext; // Context from HomePage to navigate from
+  final VoidCallback? onDataUpdated; // 回呼函數：當編輯完成返回時通知首頁更新資料
 
   const SettingsBottomSheet({
     super.key,
@@ -24,6 +25,7 @@ class SettingsBottomSheet extends StatelessWidget {
     required this.isProfileComplete,
     this.fullUserData,
     required this.parentContext,
+    this.onDataUpdated,
   });
 
   @override
@@ -89,18 +91,28 @@ class SettingsBottomSheet extends StatelessWidget {
                 ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('請完善您的個人資料！'), duration: Duration(seconds: 1))); // 顯示2秒
               }
               Navigator.pop(context); // Close the bottom sheet
-              Navigator.push(parentContext, MaterialPageRoute(builder: (ctx) => EditProfileScreen(userData: fullUserData)));
+              Navigator.push(parentContext, MaterialPageRoute(builder: (ctx) => EditProfileScreen(userData: fullUserData))).then((_) {
+                if (onDataUpdated != null) onDataUpdated!(); // 編輯完成返回後，觸發更新
+              });
             },
             trailing: !isProfileComplete ? const Icon(Icons.error, color: Colors.red, size: 20) : null,
           ),
+
+
           ListTile(
-            leading: const Icon(Icons.group_add_outlined, color: Color(0xFFE5BA73)),
-            title: const Text('邀請團隊人員', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.subscriptions, color: Color(0xFFE5BA73)),
+            title: const Text('管理我的訂閱', style: TextStyle(color: Colors.white)),
             onTap: () {
-              Navigator.pop(context); // Close the bottom sheet
-              ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('邀請團隊人員功能開發中')));
+              Navigator.pop(context); // 關閉底部選單
+              Navigator.push(parentContext, MaterialPageRoute(builder: (ctx) => EditProfileScreen(userData: fullUserData))).then((_) {
+                if (onDataUpdated != null) onDataUpdated!(); // 訂閱管理完成返回後，觸發更新
+              });
             },
+            trailing: !isProfileComplete ? const Icon(Icons.error, color: Colors.red, size: 20) : null,
           ),
+
+
+
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: const Text('登出', style: TextStyle(color: Colors.redAccent)),

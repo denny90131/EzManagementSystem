@@ -109,6 +109,7 @@ class PettyCashPage extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'petty_cash_fab_tag', // 給予獨立的 heroTag 避免衝突
         onPressed: () {},
         backgroundColor: const Color(0xFFE5BA73), // 琥珀金
         child: const Icon(Icons.add, color: Colors.black),

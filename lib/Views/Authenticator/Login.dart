@@ -38,12 +38,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // 檢查是否有儲存 user_id (代表上次未登出)
     if (userId != null && userId.isNotEmpty) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-      );
-      return; // 跳轉後結束執行
+      setState(() {
+        _isLoading = true; // 顯示載入中動畫，確保資料抓完才跳轉
+      });
+      try {
+        final userData = await ApiService.getUserById(userId);
+        final status = await ApiService.getCompletionStatus(userId);
+        if (!mounted) return;
+        if (userData != null) {
+          if (status != null) {
+            userData['isProfileComplete'] = status['isComplete']; // 將進度狀態塞入 userData
+          }
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainScreen(userData: userData)),
+          );
+          return; // 跳轉後結束執行
+        }
+      } catch (e) {
+        // 背景登入失敗，忽略並讓使用者手動登入
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
 
     final rememberMe = prefs.getBool('remember_me') ?? false;
@@ -93,15 +109,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
           // 儲存 user_id 以供後續 API (如編輯個人資料) 使用
           final String? uid = userData['index']?.toString() ?? userData['Index']?.toString();
+          Map<String, dynamic> fullUserData = Map<String, dynamic>.from(userData);
+          
           if (uid != null) {
             await prefs.setString('user_id', uid);
+            
+            // 確定取得最完整的資料與進度後再進入主畫面
+            final fetchedData = await ApiService.getUserById(uid);
+            if (fetchedData != null) {
+              fullUserData = fetchedData;
+            }
+            final status = await ApiService.getCompletionStatus(uid);
+            if (status != null) {
+              fullUserData['isProfileComplete'] = status['isComplete'];
+            }
           }
+          
+          if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('登入成功！歡迎 ${userData['name']}')));
+              SnackBar(content: Text('登入成功！歡迎 ${fullUserData['name'] ?? userData['name']}')));
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => MainScreen(userData: userData)),
+            MaterialPageRoute(builder: (context) => MainScreen(userData: fullUserData)),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

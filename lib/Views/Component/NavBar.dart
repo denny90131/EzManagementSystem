@@ -35,7 +35,10 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       // extendBody 設為 true 是關鍵！這可以讓 body 延伸到底部導航欄的下方，使毛玻璃效果顯現
       extendBody: true,
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: ClipRRect(
         // ClipRRect 防止模糊效果溢出到非導航欄的區域
         child: BackdropFilter(

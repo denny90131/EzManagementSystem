@@ -116,6 +116,7 @@ class ReportPage extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'report_fab_tag', // 給予獨立的 heroTag 避免衝突
         onPressed: () {},
         backgroundColor: const Color(0xFFE5BA73), // 琥珀金
         icon: const Icon(Icons.add_a_photo_outlined, color: Colors.black),

@@ -3,8 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Services/Authenticator/api_service.dart';
-import '../../Authenticator/Login.dart';
-import 'Setting/EditRegisterInfo.dart'; // 修正 EditRegisterInfo.dart 的引入路徑
+import '../../Domain/Home/Component/settings_sheet.dart'; // 引入獨立的底部選單元件
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -36,9 +35,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _userCompany = widget.userData!['company'];
       _userPosition = widget.userData!['position'];
       _userPhone = widget.userData!['phoneNumber'];
-    } else {
-      _fetchData(); // 若無初始資料才向 API 請求
+      
+      // 讀取登入時一併抓好的資料完整度狀態
+      if (widget.userData!['isProfileComplete'] != null) {
+        _isProfileComplete = widget.userData!['isProfileComplete'];
+      }
     }
+    
+    // 無論有無傳入初始資料，都在背景執行一次以取得最新的「資料填寫進度狀態 (_isProfileComplete)」
+    _fetchData(); 
 
     // 初始化儀表板動畫 (從 0 跑到 85%)
     _animationController = AnimationController(
@@ -95,118 +100,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       backgroundColor: const Color(0xFF1A2232), // 卡片底色
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (BuildContext sheetContext) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: const Color(0xFF121824),
-                      backgroundImage: _userPictureBase64 != null && _userPictureBase64!.isNotEmpty
-                          ? MemoryImage(base64Decode(_userPictureBase64!))
-                          : null,
-                      child: _userPictureBase64 == null || _userPictureBase64!.isEmpty
-                          ? const Icon(Icons.person_outline, color: Color(0xFFE5BA73), size: 36)
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(_userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white), overflow: TextOverflow.ellipsis),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)]),
-                                  borderRadius: BorderRadius.circular(16), // 膠囊形狀 (圓弧橫長體)
-                                ),
-                                child: const Text('已訂閱', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${(_userCompany == null || _userCompany!.isEmpty || _userCompany == '.') ? '尚未填寫公司' : _userCompany} • '
-                            '${(_userPosition == null || _userPosition!.isEmpty || _userPosition == '.') ? '尚未填寫職務' : _userPosition}',
-                            style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 14),
-                          ),
-                          if (_userPhone != null && _userPhone!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(_userPhone!, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
-                          ]
-                        ],
-                      ),
-                    ),
-                    // 將邀請團隊按鈕放置於此，與名字平行靠右
-                    Tooltip(
-                      message: '邀請團隊人員',
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(sheetContext);
-                          ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('邀請團隊人員功能開發中')));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A2232), // 融入卡片底色
-                          side: const BorderSide(color: Color(0xFFE5BA73)),
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(36, 36),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                        child: const Icon(Icons.person_add_outlined, size: 20, color: Color(0xFFE5BA73)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Colors.white12),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined, color: Color(0xFFE5BA73)),
-                title: const Text('編輯個人資料', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  // 點擊編輯個人資料時，如果資料不完整，可以顯示提示或直接導航
-                  if (!_isProfileComplete) {
-                    ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('請完善您的個人資料！')));
-                  }
-                  Navigator.pop(sheetContext);
-                  Navigator.push(parentContext, MaterialPageRoute(builder: (context) => EditProfileScreen(userData: _fullUserData))).then((_) {
-                    _fetchData(); // 當從編輯頁面返回時，立刻重新抓取最新資料以更新大頭貼
-                  });
-                },
-                trailing: !_isProfileComplete ? const Icon(Icons.error, color: Colors.red, size: 20) : null, // 直接在 trailing 顯示驚嘆號
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text('登出', style: TextStyle(color: Colors.redAccent)),
-                onTap: () async {
-                  // 1. 先關閉底部選單，避免阻擋導航
-                  Navigator.pop(sheetContext);
-
-                  // 2. 登出時必須清除儲存的 user_id，避免下次開啟自動登入
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('user_id');
-                  
-                  // 3. 返回登入畫面
-                  if (!parentContext.mounted) return;
-                  Navigator.pushAndRemoveUntil(
-                    parentContext,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (route) => false,
-                  );
-                },
-              ), // 移除原有的 Positioned 元件
-            ],
-          ),
+        return SettingsBottomSheet(
+          userName: _userName,
+          userPictureBase64: _userPictureBase64,
+          userCompany: _userCompany,
+          userPosition: _userPosition,
+          userPhone: _userPhone,
+          isProfileComplete: _isProfileComplete,
+          fullUserData: _fullUserData,
+          parentContext: parentContext,
+          onDataUpdated: _fetchData, // 傳入重新抓取資料的函式，當從編輯頁面返回時會觸發更新大頭貼
         );
       },
     );
@@ -615,15 +518,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     children: [
                       Column(
                         children: [
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: Colors.white.withOpacity(0.2),
-                            backgroundImage: _userPictureBase64 != null && _userPictureBase64!.isNotEmpty
-                                ? MemoryImage(base64Decode(_userPictureBase64!))
-                                : null,
-                            child: _userPictureBase64 == null || _userPictureBase64!.isEmpty
-                                ? const Icon(Icons.person, color: Colors.white, size: 28)
-                                : null,
+                          Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                backgroundImage: _userPictureBase64 != null && _userPictureBase64!.isNotEmpty
+                                    ? MemoryImage(base64Decode(_userPictureBase64!))
+                                    : null,
+                                child: _userPictureBase64 == null || _userPictureBase64!.isEmpty
+                                    ? const Icon(Icons.person, color: Colors.white, size: 28)
+                                    : null,
+                              ),
+                              // 讓首頁的大頭貼也能直接顯示紅色驚嘆號提示
+                              if (!_isProfileComplete)
+                                const Positioned(
+                                  right: -2,
+                                  bottom: 0,
+                                  child: Icon(Icons.error, color: Colors.redAccent, size: 18),
+                                ),
+                            ],
                           ),
                         ],
                       ),

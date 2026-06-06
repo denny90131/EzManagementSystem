@@ -212,7 +212,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
 
       if (errorMessage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('資料更新成功！')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('資料更新成功！'),duration: Duration(seconds: 1))); // 加上這一行，設定顯示時間為 2 秒));
         Navigator.pop(context); // 儲存成功後返回首頁
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('更新失敗：$errorMessage')));
