@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Services/Authenticator/api_service.dart';
 import '../../Authenticator/Login.dart';
-import '../../Profile/edit_profile_screen.dart'; // 指向新的 Profile 資料夾
+import 'Setting/EditRegisterInfo.dart'; // 修正 EditRegisterInfo.dart 的引入路徑
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -107,7 +107,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       radius: 32,
                       backgroundColor: const Color(0xFF121824),
                       backgroundImage: _userPictureBase64 != null && _userPictureBase64!.isNotEmpty
-                          ? MemoryImage(base64Decode(_userPictureBase64!.split(',').last.replaceAll(RegExp(r'\s+'), '')))
+                          ? MemoryImage(base64Decode(_userPictureBase64!))
                           : null,
                       child: _userPictureBase64 == null || _userPictureBase64!.isEmpty
                           ? const Icon(Icons.person_outline, color: Color(0xFFE5BA73), size: 36)
@@ -397,11 +397,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _showDispatchDialog(BuildContext context) {
     String? selectedSite;
     List<String> selectedEmployees = [];
-    final TextEditingController dispatchNotesController = TextEditingController();
 
     // 模擬資料列表
     final List<String> availableSites = ['中山區辦公大樓空調維護', '信義區百貨管線重整', '大安區豪宅裝潢工程'];
-    final Future<List<dynamic>?> usersFuture = ApiService.getAllUsers(); // 提前取得真實員工名單以避免重複請求
+    final Future<List<dynamic>?> usersFuture = ApiService.getAllUsers(); // 提前取得真實員工名單
 
     showDialog(
       context: context,
@@ -452,6 +451,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         }
 
                         final users = snapshot.data!;
+                        // 抓取真實員工的名字，若無名稱則防呆
                         final availableEmployees = users.map((u) => u['name']?.toString() ?? '未知員工').toList();
 
                         return Wrap(
@@ -479,8 +479,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         );
                       },
                     ),
-                    const SizedBox(height: 20),
-                    _buildDialogTextField(dispatchNotesController, '派工備註', Icons.speaker_notes_outlined, maxLines: 2),
                   ],
                 ),
               ),
@@ -822,7 +820,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               const SizedBox(height: 24),
               
               // 6. 即將到來案件 (點擊進入詳細頁面)
-              const Text('即將到來', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('即將到來案件', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 16),
               Container(
                 margin: const EdgeInsets.only(bottom: 80), // 避免內容被 NavigationBar 遮擋

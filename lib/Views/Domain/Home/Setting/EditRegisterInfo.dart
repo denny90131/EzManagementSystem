@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../Services/Authenticator/api_service.dart'; // 修正搬移至 Profile 後的相對層級
+import '../../../../Services/Authenticator/api_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -14,10 +14,10 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  String? _originalPassword = "********"; // 用於表示原始密碼未更改的佔位符
   bool _isLoading = false;
   bool _isSaving = false;
   String? _userId;
-  String? _originalPassword; // 新增：用來暫存後端傳來的舊密碼
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController phoneController = TextEditingController();
@@ -54,47 +54,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _populateData(Map<String, dynamic> userData) {
-    _originalPassword = userData['password']; // 將舊密碼存起來
-    _originalPictureBase64 = userData['picture']?.toString() ?? userData['Picture']?.toString(); // 儲存原始圖片 Base64 (兼容大小寫)
-    _selectedImage = null; // 重置任何暫時的圖片選擇
-    _isImageCleared = false; // 重置圖片清除狀態
-
-    //姓名
     nameController.text = userData['name'] ?? '';
-    //公司
-    companyController.text = safeGetString(userData['company']);
-    //手機
+    companyController.text = userData['company'] ?? '';
     phoneController.text = userData['phoneNumber'] ?? '';
-    //職務
-    jobTitleController.text = safeGetString(userData['position']);
-    //緊急聯絡人
-    emergencyContactController.text = safeGetString(userData['iceName']);
-    //緊急聯絡人電話
-    emergencyContactPhoneController.text = safeGetString(userData['icePhoneNumber']);
+    jobTitleController.text = userData['position'] ?? '';
+    emergencyContactController.text = userData['iceName'] ?? '';
+    emergencyContactPhoneController.text = userData['icePhoneNumber'] ?? '';
+    
     // 確保回傳的值在選單中，避免 Dropdown 報錯
     final validRels = ['父母', '配偶', '子女', '兄弟姊妹', '朋友'];
-    //緊急聯絡人關係
-    if (validRels.contains(safeGetString(userData['iceRelation']))) _selectedEmergencyContactRel = safeGetString(userData['iceRelation']);
-    //遺傳病史
-    medicalHistoryController.text = safeGetString(userData['geneticHistory']);
-    //性別
-    if (['男', '女'].contains(safeGetString(userData['gender']))) _selectedGender = safeGetString(userData['gender']);
-    //血型
-    if (['A', 'B', 'O', 'AB'].contains(safeGetString(userData['blood']))) _selectedBloodType = safeGetString(userData['blood']);
-    //生日
+    if (validRels.contains(userData['iceRelation'])) _selectedEmergencyContactRel = userData['iceRelation'];
+
+    medicalHistoryController.text = userData['geneticHistory'] ?? '';
+    if (['男', '女'].contains(userData['gender'])) _selectedGender = userData['gender'];
+    if (['A', 'B', 'O', 'AB'].contains(userData['blood'])) _selectedBloodType = userData['blood'];
+    
     if (userData['birth'] != null && userData['birth'].toString().contains('T')) {
       birthdayController.text = userData['birth'].toString().split('T')[0];
     }
-    //電子郵件
-    emailController.text = safeGetString(userData['email']);
-    //地址
-    addressController.text = safeGetString(userData['address']);
-  }
-
-  // 輔助函式：安全地取得字串資料，將 null 或 "." 轉換為 ""
-  String safeGetString(dynamic value) {
-    if (value == null || value == '.') return '';
-    return value.toString();
+    emailController.text = userData['email'] ?? '';
+    addressController.text = userData['address'] ?? '';
   }
 
   Future<void> _loadUserData() async {
@@ -108,10 +87,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (_userId != null) {
         final userData = await ApiService.getUserById(_userId!);
         if (userData != null) {
-          // 防呆保護：如果後端重新抓取的資料沒有包含圖片，但我們從首頁帶來的舊資料有圖片，就將舊圖片保留，防止被洗掉
-          if (userData['picture'] == null && userData['Picture'] == null && _originalPictureBase64 != null && !_isImageCleared) {
-            userData['picture'] = _originalPictureBase64;
-          }
           setState(() {
             _populateData(userData);
           });
@@ -351,6 +326,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             backgroundImage: _selectedImage != null
                                 ? FileImage(_selectedImage!)
                                 : (_originalPictureBase64 != null && _originalPictureBase64!.isNotEmpty && !_isImageCleared
+                                    // 確保去除可能帶有的前綴與所有空白、換行，避免白屏崩潰
                                     ? MemoryImage(base64Decode(_originalPictureBase64!.split(',').last.replaceAll(RegExp(r'\s+'), '')))
                                     : null),
                             child: (_selectedImage == null && (_originalPictureBase64 == null || _originalPictureBase64!.isEmpty || _isImageCleared))
@@ -374,85 +350,85 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   if (_selectedImage != null || (_originalPictureBase64 != null && !_isImageCleared))
                     TextButton(onPressed: () { setState(() { _selectedImage = null; _isImageCleared = true; }); }, child: const Text('清除照片', style: TextStyle(color: Colors.redAccent))),
                   const SizedBox(height: 32),
-                  // 將 Padding 和 Form 移到 Column 的 children 列表內
+                  
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         children: [
-                          _buildTextField(companyController, '公司名稱', icon: Icons.business),
-                          _buildTextField(nameController, '姓名', icon: Icons.person, isRequired: true),
-                          _buildTextField(phoneController, '手機', icon: Icons.phone, keyboardType: TextInputType.phone, isRequired: true),
-                          
-                          // 密碼變為選填
-                          _buildTextField(passwordController, '修改密碼 (若不更改請留空)', icon: Icons.lock, obscureText: true),
-                          
-                          _buildTextField(jobTitleController, '職務', icon: Icons.work),
-                          _buildTextField(emergencyContactController, '緊急聯絡人', icon: Icons.contact_emergency),
-                          _buildTextField(emergencyContactPhoneController, '緊急聯絡人手機', icon: Icons.phone_in_talk, keyboardType: TextInputType.phone),
-                          _buildDropdownField(
-                            label: '聯絡人關係',
-                            value: _selectedEmergencyContactRel,
-                            items: ['父母', '配偶', '子女', '兄弟姊妹', '朋友'],
-                            icon: Icons.people,
-                            onChanged: (val) => setState(() => _selectedEmergencyContactRel = val),
-                          ),
-                          const Divider(height: 32, color: Colors.white12),
-                          _buildTextField(medicalHistoryController, '遺傳病史', icon: Icons.medical_services),
-                          _buildDropdownField(
-                            label: '性別',
-                            value: _selectedGender,
-                            items: ['男', '女'],
-                            icon: Icons.wc,
-                            onChanged: (val) => setState(() => _selectedGender = val),
-                          ),
-                          _buildDropdownField(
-                            label: '血型',
-                            value: _selectedBloodType,
-                            items: ['A', 'B', 'O', 'AB'],
-                            icon: Icons.bloodtype,
-                            onChanged: (val) => setState(() => _selectedBloodType = val),
-                          ),
-                          _buildTextField(birthdayController, '生日', icon: Icons.cake, readOnly: true, onTap: () => _selectDate(context)),
-                          _buildTextField(emailController, '聯絡信箱', icon: Icons.email, keyboardType: TextInputType.emailAddress),
-                          _buildTextField(addressController, '聯絡地址', icon: Icons.home_work),
-                          
-                          const SizedBox(height: 40),
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
-                              ],
-                            ),
-                            child: ElevatedButton(
-                              onPressed: _isSaving ? null : _submit,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 18),
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              child: _isSaving
-                                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                                  : const Text('儲存變更', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
-                            ),
-                          ),
+                    _buildTextField(companyController, '公司名稱', icon: Icons.business),
+                    _buildTextField(nameController, '姓名', icon: Icons.person, isRequired: true),
+                    _buildTextField(phoneController, '手機', icon: Icons.phone, keyboardType: TextInputType.phone, isRequired: true),
+                    
+                    // 密碼變為選填
+                    _buildTextField(passwordController, '修改密碼 (若不更改請留空)', icon: Icons.lock, obscureText: true),
+                    
+                    _buildTextField(jobTitleController, '職務', icon: Icons.work),
+                    _buildTextField(emergencyContactController, '緊急聯絡人', icon: Icons.contact_emergency),
+                    _buildTextField(emergencyContactPhoneController, '緊急聯絡人手機', icon: Icons.phone_in_talk, keyboardType: TextInputType.phone),
+                    _buildDropdownField(
+                      label: '聯絡人關係',
+                      value: _selectedEmergencyContactRel,
+                      items: ['父母', '配偶', '子女', '兄弟姊妹', '朋友'],
+                      icon: Icons.people,
+                      onChanged: (val) => setState(() => _selectedEmergencyContactRel = val),
+                    ),
+                    const Divider(height: 32, color: Colors.white12),
+                    _buildTextField(medicalHistoryController, '遺傳病史', icon: Icons.medical_services),
+                    _buildDropdownField(
+                      label: '性別',
+                      value: _selectedGender,
+                      items: ['男', '女'],
+                      icon: Icons.wc,
+                      onChanged: (val) => setState(() => _selectedGender = val),
+                    ),
+                    _buildDropdownField(
+                      label: '血型',
+                      value: _selectedBloodType,
+                      items: ['A', 'B', 'O', 'AB'],
+                      icon: Icons.bloodtype,
+                      onChanged: (val) => setState(() => _selectedBloodType = val),
+                    ),
+                    _buildTextField(birthdayController, '生日', icon: Icons.cake, readOnly: true, onTap: () => _selectDate(context)),
+                    _buildTextField(emailController, '聯絡信箱', icon: Icons.email, keyboardType: TextInputType.emailAddress),
+                    _buildTextField(addressController, '聯絡地址', icon: Icons.home_work),
+                    
+                    const SizedBox(height: 40),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
                         ],
                       ),
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                            : const Text('儲存變更', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 }

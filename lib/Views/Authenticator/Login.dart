@@ -1,8 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../Main/main_screen.dart'; // 指向新的主框架路徑
 import '../Component/NavBar.dart'; // 修正為正確的導航框架路徑
 import '../../Services/Authenticator/api_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
