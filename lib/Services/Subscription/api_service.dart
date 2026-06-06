@@ -199,14 +199,25 @@ class SubscriptionApiService {
         'LicenseKey': licenseKey,
       };
       final response = await _post('/subscribe', payload);
-      final decoded = jsonDecode(response.body);
+      
+      print('--- [Debug] 訂閱 API 狀態碼: ${response.statusCode} ---');
+      print('--- [Debug] 訂閱 API 回傳值: ${response.body} ---');
 
       if (response.statusCode == 200) {
-        return (null, SubscriptionResponseModel.fromJson(Map<String, dynamic>.from(decoded['data'])));
+        final decoded = jsonDecode(response.body);
+        return (null, SubscriptionResponseModel.fromJson(Map<String, dynamic>.from(decoded['data'] ?? {})));
       } else {
-        return (decoded['message']?.toString() ?? '訂閱失敗，錯誤碼：${response.statusCode}', null);
+        String errorMsg = '訂閱失敗，錯誤碼：${response.statusCode}';
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded['message'] != null) errorMsg = decoded['message'].toString();
+        } catch (_) {
+          if (response.body.isNotEmpty) errorMsg = response.body;
+        }
+        return (errorMsg, null);
       }
     } catch (e) {
+      print('訂閱 API 發生例外錯誤: $e');
       return ('無法連線至伺服器：$e', null);
     }
   }

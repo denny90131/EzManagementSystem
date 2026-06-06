@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Authenticator/Login.dart';
 import '../Setting/EditRegisterInfo.dart';
 import '../../../../Services/Subscription/api_service.dart';
+import '../Setting/ManageSubscription.dart'; // 引入新分離的檔案
+import '../Setting/InviteMember.dart'; // 引入邀請成員介面
 
 class SettingsBottomSheet extends StatefulWidget {
   final String userName;
@@ -68,10 +70,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       setState(() {
         // 過濾掉 UUID 為空的異常資料，避免 DropdownButton 崩潰
         final validTeams = teamsData?.where((t) => t.teamUUID.isNotEmpty).toList() ?? [];
-        _teams = validTeams.map((t) => {
+        _teams = validTeams.map<Map<String, dynamic>>((t) => {
           'TeamUUID': t.teamUUID,
           'TeamName': t.teamName.isNotEmpty ? t.teamName : '未命名團隊',
-        }).toList() ?? [];
+        }).toList();
         
         if (_teams.isNotEmpty) {
           if (_selectedTeamId == null || !_teams.any((t) => t['TeamUUID'] == _selectedTeamId)) {
@@ -192,6 +194,31 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     }
   }
 
+  void _showSubscriptionDialog() {
+    if (_selectedTeamId == null) {
+      ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('請先選擇或建立一個團隊')));
+      return;
+    }
+
+    final currentTeam = _teams.firstWhere(
+      (t) => t['TeamUUID'] == _selectedTeamId,
+      orElse: () => <String, dynamic>{'TeamName': '未知團隊'},
+    );
+    final String currentTeamName = currentTeam['TeamName'];
+
+    // 呼叫我們剛剛分離出去的獨立 Widget
+    ManageSubscriptionDialog.show(
+      widget.parentContext,
+      teamUUID: _selectedTeamId!,
+      teamName: currentTeamName,
+      onSubscriptionSuccess: () {
+        ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('訂閱成功！')));
+        _fetchActivePlan(_selectedTeamId!); // 重新抓取訂閱狀態
+        if (widget.onDataUpdated != null) widget.onDataUpdated!();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) { // 'context' here is the sheetContextｓ
     return SafeArea(
@@ -256,6 +283,64 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     ],
                   ),
                 ),
+                // --- 快捷操作按鈕 (依據訂閱狀態切換) ---
+                if (!_isLoadingPlan) ...[
+                  const SizedBox(width: 12),
+                  if (_activePlan != null && _activePlan!.remainingDays > 0)
+                    // 已訂閱：顯示邀請成員
+                    InkWell(
+                      onTap: () {
+                        final currentTeam = _teams.firstWhere(
+                          (t) => t['TeamUUID'] == _selectedTeamId,
+                          orElse: () => <String, dynamic>{'TeamName': '未知團隊'},
+                        );
+                        InviteMemberDialog.show(
+                          widget.parentContext, 
+                          teamUUID: _selectedTeamId!, 
+                          teamName: currentTeam['TeamName'],
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5BA73).withOpacity(0.1),
+                          border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.group_add_outlined, color: Color(0xFFE5BA73), size: 16),
+                            SizedBox(width: 4),
+                            Text('邀請成員', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 12, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    // 未訂閱：顯示升級方案
+                    InkWell(
+                      onTap: _showSubscriptionDialog, // 點擊直接開啟升級訂閱視窗
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5BA73).withOpacity(0.1),
+                          border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.rocket_launch_outlined, color: Color(0xFFE5BA73), size: 16),
+                            SizedBox(width: 4),
+                            Text('升級方案', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 12, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
@@ -355,6 +440,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           ),
           const Divider(height: 1, color: Colors.white12),
 
+          // 編輯個人資料
           ListTile(
             leading: const Icon(Icons.edit_outlined, color: Color(0xFFE5BA73)),
             title: const Text('編輯個人資料', style: TextStyle(color: Colors.white)),
@@ -369,22 +455,13 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             },
             trailing: !widget.isProfileComplete ? const Icon(Icons.error, color: Colors.red, size: 20) : null,
           ),
-
-
+          // 管理訂閱方案
           ListTile(
             leading: const Icon(Icons.subscriptions, color: Color(0xFFE5BA73)),
             title: const Text('管理我的訂閱', style: TextStyle(color: Colors.white)),
-            onTap: () {
-              Navigator.pop(context); // 關閉底部選單
-              Navigator.push(widget.parentContext, MaterialPageRoute(builder: (ctx) => EditProfileScreen(userData: widget.fullUserData))).then((_) {
-                if (widget.onDataUpdated != null) widget.onDataUpdated!(); // 訂閱管理完成返回後，觸發更新
-              });
-            },
-            trailing: !widget.isProfileComplete ? const Icon(Icons.error, color: Colors.red, size: 20) : null,
+            onTap: _showSubscriptionDialog,
           ),
-
-
-
+          // 登出
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: const Text('登出', style: TextStyle(color: Colors.redAccent)),
