@@ -16,6 +16,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
+  bool _isCheckingAuth = true; // 新增：控制初始驗證狀態，避免直接顯示登入表單
   bool _rememberMe = false; // 控制記住我的勾選狀態
   bool _isPasswordVisible = false; // 控制密碼是否顯示
   final _formKey = GlobalKey<FormState>();
@@ -38,9 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // 檢查是否有儲存 user_id (代表上次未登出)
     if (userId != null && userId.isNotEmpty) {
-      setState(() {
-        _isLoading = true; // 顯示載入中動畫，確保資料抓完才跳轉
-      });
       try {
         final userData = await ApiService.getUserById(userId);
         final status = await ApiService.getCompletionStatus(userId);
@@ -57,17 +55,20 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } catch (e) {
         // 背景登入失敗，忽略並讓使用者手動登入
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
       }
     }
 
-    final rememberMe = prefs.getBool('remember_me') ?? false;
-    if (rememberMe) {
+    // 如果沒有 UID 或自動登入失敗，則結束驗證狀態並顯示登入表單
+    if (mounted) {
       setState(() {
-        _rememberMe = true;
-        phoneController.text = prefs.getString('saved_phone') ?? '';
-        passwordController.text = prefs.getString('saved_password') ?? '';
+        _isCheckingAuth = false;
+        
+        final rememberMe = prefs.getBool('remember_me') ?? false;
+        if (rememberMe) {
+          _rememberMe = true;
+          phoneController.text = prefs.getString('saved_phone') ?? '';
+          passwordController.text = prefs.getString('saved_password') ?? '';
+        }
       });
     }
   }
@@ -218,6 +219,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 如果還在檢查是否有登入過，先顯示全螢幕的載入中畫面 (Splash Screen 風格)
+    if (_isCheckingAuth) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF121824),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image(
+                image: ExactAssetImage('assets/images/ez_icon.png', scale: 2.0),
+                fit: BoxFit.cover,
+              ),
+              SizedBox(height: 24),
+              CircularProgressIndicator(color: Color(0xFFE5BA73)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF121824), // 深底色
       body: Stack(
