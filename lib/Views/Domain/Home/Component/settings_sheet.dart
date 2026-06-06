@@ -29,7 +29,7 @@ class SettingsBottomSheet extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) { // 'context' here is the sheetContext
+  Widget build(BuildContext context) { // 'context' here is the sheetContextｓ
     return SafeArea(
       child: Wrap(
         children: [
