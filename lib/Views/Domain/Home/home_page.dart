@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Services/Authenticator/api_service.dart';
 import '../../Domain/Home/Component/settings_sheet.dart'; // 引入獨立的底部選單元件
@@ -892,34 +895,42 @@ class _HoneycombPainter extends CustomPainter {
 }
 
 // --- 案件詳細頁面 (點擊案件卡片時導覽) ---
-class CaseDetailPage extends StatelessWidget {
+class CaseDetailPage extends StatefulWidget {
   const CaseDetailPage({super.key});
 
-  Widget _buildDetailTile(IconData icon, String title, String subtitle, Color iconColor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  State<CaseDetailPage> createState() => _CaseDetailPageState();
+}
+
+class _CaseDetailPageState extends State<CaseDetailPage> {
+  int _currentTab = 1; // 0: 會議紀錄, 1: 現況照
+
+  Widget _buildTab(int index, String title) {
+    bool isSelected = _currentTab == index;
+    return GestureDetector(
+      onTap: () => setState(() => _currentTab = index),
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 13, color: Color(0xFF8A94A6), fontWeight: FontWeight.w500)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.4)),
-              ],
+          Text(
+            title,
+            style: TextStyle(
+              color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6),
+              fontSize: 16,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
+          const SizedBox(height: 6),
+          if (isSelected)
+            Container(
+              width: 24,
+              height: 3,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5BA73),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            )
+          else
+            const SizedBox(height: 3),
         ],
       ),
     );
@@ -930,143 +941,145 @@ class CaseDetailPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF121824), // 深色背景
       appBar: AppBar(
-        title: const Text('案件詳情', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-        centerTitle: true,
         backgroundColor: const Color(0xFF121824), // 深色背景
         foregroundColor: Colors.white,
         elevation: 0,
-        scrolledUnderElevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1.0),
-          child: Container(color: Colors.white12, height: 1.0),
+        title: const Text('工地資料', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.people_alt_outlined, color: Color(0xFFE5BA73)),
+            onPressed: () {},
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          // 工作單標頭設計
-          Center(
-            child: Column(
+      body: Column(
+        children: [
+          // 2. 專案資料分類標籤
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+            child: Row(
               children: [
-                const Icon(Icons.qr_code_scanner, size: 48, color: Color(0xFFE5BA73)), // 金色 QR Icon
-                const SizedBox(height: 8),
-                const Text('WORK ORDER #20231120-001', style: TextStyle(fontFamily: 'monospace', fontSize: 14, color: Color(0xFF8A94A6), letterSpacing: 1.5)),
+                _buildTab(0, '會議紀錄'),
+                const SizedBox(width: 24),
+                _buildTab(1, '現況照'),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           
-            Container(
-              padding: const EdgeInsets.all(20),
+          // 3. 照片網格內容區
+          if (_currentTab == 1)
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20.0),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A2232), // 深色卡片
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3), width: 1.5), // 金色外框
+                color: const Color(0xFF1A2232),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5)),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(child: Text('中山區辦公大樓空調維護', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white))),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFFE65100).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                        child: const Text('已排定', style: TextStyle(color: Color(0xFFE65100), fontWeight: FontWeight.bold, fontSize: 12)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 9 / 16, // 16:9 垂直長方型
+                        ),
+                        itemCount: 4, // 模擬 4 張圖片
+                        itemBuilder: (context, index) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF121824),
+                              borderRadius: BorderRadius.circular(8),
+                              image: const DecorationImage(
+                                image: AssetImage('assets/images/placeholder.png'), // 請確保專案有此圖片，或替換為 NetworkImage
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            child: const Center(child: Icon(Icons.image_outlined, color: Color(0xFF8A94A6), size: 36)),
+                          );
+                        },
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // 票根虛線分隔
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      return Flex(
-                        direction: Axis.horizontal,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate((constraints.constrainWidth() / 10).floor(), (index) => const SizedBox(width: 5, height: 1, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white24)))),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _buildDetailTile(Icons.location_on, '地址', '台北市中山區南京東路1段1號', Colors.red.shade400),
-                  _buildDetailTile(Icons.calendar_today, '日期', '2023-11-20 (示意日期)', Colors.blue.shade400),
-                  _buildDetailTile(Icons.access_time, '時間', '09:00 - 18:00', const Color(0xFFE65100)),
-                  _buildDetailTile(Icons.people, '指派人員', '測試員工1, 測試員工2', Colors.purple.shade400),
-                  _buildDetailTile(Icons.note, '老闆備注', '請注意安全，記得攜帶A字梯與安全帽。', Colors.green.shade400),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text('現場照片', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 12),
-            Container(
-              height: 160,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A2232), // 深色卡片
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3), width: 1.5), // 金色外框
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2)),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5BA73).withOpacity(0.1),
-                      shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.add_a_photo, size: 32, color: Color(0xFFE5BA73)),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('點擊上傳現場照片', style: TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  const Text('支援 JPG, PNG 格式', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text('留言與回報', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2)),
-                ],
-              ),
-              child: TextField(
-                style: const TextStyle(color: Colors.white),
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: '輸入回報內容或留言...',
-                  hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE5BA73), width: 1.5),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFF1A2232), // 深色輸入框背景
-                  contentPadding: const EdgeInsets.all(16),
+                    // 統計與下載操作 Footer
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A2232),
+                        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('共 4 張圖片', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
+                          OutlinedButton(
+                            onPressed: () {},
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF1A2232),
+                              side: const BorderSide(color: Colors.white),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('下載全部圖片', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 40),
-          ],
-        ),
+          ),
+          
+          // 4. 會議紀錄區 (Tab 0)
+          if (_currentTab == 0)
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20.0),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A2232),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.assignment_outlined, size: 48, color: Color(0xFF8A94A6)),
+                    const SizedBox(height: 16),
+                    const Text('目前尚無會議紀錄', style: TextStyle(color: Color(0xFF8A94A6))),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddRecordScreen())),
+                      icon: const Icon(Icons.add, color: Colors.black),
+                      label: const Text('新增紀錄', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+      // 4. 底部固定操作欄與漂浮按鈕
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFFE5BA73),
+        child: const Icon(Icons.home_outlined, color: Colors.black, size: 28),
+        onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
@@ -1080,23 +1093,23 @@ class CaseDetailPage extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
+                child: ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: const Text('上傳圖片', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF121824),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Color(0xFF8A94A6)),
+                    side: const BorderSide(color: Color(0xFFE5BA73)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('返回', style: TextStyle(fontSize: 16, color: Color(0xFF8A94A6), fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('進度已回報')));
-                    Navigator.pop(context); // 回報後返回
-                  },
+                  onPressed: () {},
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE5BA73), // 金色按鈕
                     foregroundColor: Colors.black, // 黑字
@@ -1104,7 +1117,7 @@ class CaseDetailPage extends StatelessWidget {
                     elevation: 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('回報進度', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
+                  child: const Text('回報進度', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -1113,4 +1126,166 @@ class CaseDetailPage extends StatelessWidget {
       ),
     );
   }
+}
+
+// --- 新增紀錄頁面 ---
+class AddRecordScreen extends StatelessWidget {
+  const AddRecordScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212), // 極深黑背景
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1E1E1E), // 深灰 Header
+        elevation: 0,
+        leadingWidth: 80,
+        leading: TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 16)),
+        ),
+        title: const Text('新增紀錄', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+        centerTitle: true,
+        actions: [
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('紀錄已儲存')));
+              Navigator.pop(context);
+            },
+            child: const Text('確認', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E), // 表單容器淺灰底(Dark mode 下的深灰卡片)
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 區塊 A: 公開紀錄
+              const Text('公開紀錄', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
+              const SizedBox(height: 12),
+              TextField(
+                maxLines: 4,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: '請輸入公開的會議內容',
+                  hintStyle: const TextStyle(color: Colors.white30),
+                  filled: true,
+                  fillColor: const Color(0xFF121212),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF121212),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(Icons.image_outlined, color: Color(0xFF8A94A6), size: 32),
+                    SizedBox(height: 8),
+                    Text('公開上傳圖片', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // 區塊 B: 非公開紀錄 (隱私虛線框設計)
+              CustomPaint(
+                painter: _DashedRectPainter(color: Colors.white30, strokeWidth: 1.5, gap: 6, dash: 6),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Text('非公開紀錄', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 14, fontWeight: FontWeight.bold)),
+                          SizedBox(width: 8),
+                          Icon(Icons.visibility_off_outlined, color: Color(0xFFE5BA73), size: 16),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        maxLines: 4,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: '此資料填寫後僅內部可見...',
+                          hintStyle: const TextStyle(color: Colors.white30),
+                          filled: true,
+                          fillColor: const Color(0xFF121212),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF121212),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.image_outlined, color: Color(0xFF8A94A6), size: 32),
+                            SizedBox(height: 8),
+                            Text('隱藏圖片', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 繪製虛線圓角矩形的 CustomPainter
+class _DashedRectPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double dash;
+
+  _DashedRectPainter({this.color = Colors.white, this.strokeWidth = 1.0, this.gap = 5.0, this.dash = 5.0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()..color = color..strokeWidth = strokeWidth..style = PaintingStyle.stroke;
+    final Path path = Path()..addRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(12)));
+    
+    Path dashPath = Path();
+    double distance = 0.0;
+    for (PathMetric pathMetric in path.computeMetrics()) {
+      while (distance < pathMetric.length) {
+        dashPath.addPath(pathMetric.extractPath(distance, distance + dash), Offset.zero);
+        distance += dash;
+        distance += gap;
+      }
+      distance = 0.0;
+    }
+    canvas.drawPath(dashPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

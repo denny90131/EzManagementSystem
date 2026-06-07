@@ -13,14 +13,7 @@ class _VolumeCalculatorPageState extends State<VolumeCalculatorPage> {
   final TextEditingController _thicknessCtrl = TextEditingController();
   final TextEditingController _qtyCtrl = TextEditingController(text: '1');
 
-  String _lengthUnit = 'cm';
-  String _widthUnit = 'cm';
-  String _thicknessUnit = 'cm';
-
-  double _totalM3 = 0.0;
-  double _totalTsai = 0.0;
-
-  final List<String> _units = ['cm', 'mm', '台尺', '吋'];
+  int _selectedTab = 0; // 0: 台灣材積, 1: 日本材積, 2: 公制體積
 
   @override
   void dispose() {
@@ -32,51 +25,35 @@ class _VolumeCalculatorPageState extends State<VolumeCalculatorPage> {
   }
 
   void _calculate() {
+    setState(() {}); // 觸發畫面重繪，數值會在 build 中即時計算
+  }
+
+  String _format(double val) {
+    if (val == 0) return '0';
+    // 最多保留 6 位小數，並移除尾部多餘的 0 與小數點
+    String s = val.toStringAsFixed(6);
+    s = s.replaceAll(RegExp(r'0*$'), '');
+    if (s.endsWith('.')) s = s.substring(0, s.length - 1);
+    return s.isEmpty ? '0' : s;
+  }
+
+  String _getMainResultText(double totalCm3) {
+    if (_selectedTab == 0) return '${_format(totalCm3 / 27826.117)} 才';
+    if (_selectedTab == 1) return '${_format(totalCm3 / 278261.17)} 石';
+    return '${_format(totalCm3 / 1000000.0)} m³';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     double l = double.tryParse(_lengthCtrl.text) ?? 0.0;
     double w = double.tryParse(_widthCtrl.text) ?? 0.0;
     double t = double.tryParse(_thicknessCtrl.text) ?? 0.0;
     double q = double.tryParse(_qtyCtrl.text) ?? 1.0;
 
-    if (l == 0 || w == 0 || t == 0 || q == 0) {
-      setState(() {
-        _totalM3 = 0.0;
-        _totalTsai = 0.0;
-      });
-      return;
-    }
+    double singleCm3 = l * w * t;
+    double vCm3 = singleCm3 * q;
+    bool showInstruction = (vCm3 == 0); // 體積為0時顯示說明
 
-    // 將所有輸入轉換為公分 (cm)
-    double lCm = _convertToCm(l, _lengthUnit);
-    double wCm = _convertToCm(w, _widthUnit);
-    double tCm = _convertToCm(t, _thicknessUnit);
-
-    // 計算單件總體積 (cm³)
-    double volumeCm3 = lCm * wCm * tCm * q;
-
-    // 1 立方公尺 (m³) = 1,000,000 cm³
-    // 1 才 (體積才) = 1台尺 x 1台尺 x 1台寸 = 30.303 x 30.303 x 3.0303 ≒ 2782.6 cm³
-    setState(() {
-      _totalM3 = volumeCm3 / 1000000.0;
-      _totalTsai = volumeCm3 / 2782.6;
-    });
-  }
-
-  double _convertToCm(double value, String unit) {
-    switch (unit) {
-      case '台尺':
-        return value * 30.3030303;
-      case '吋':
-        return value * 2.54;
-      case 'mm':
-        return value * 0.1;
-      case 'cm':
-      default:
-        return value;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121824),
       appBar: AppBar(
@@ -85,7 +62,7 @@ class _VolumeCalculatorPageState extends State<VolumeCalculatorPage> {
         title: const Column(
           children: [
             Text('材積計算', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            Text('支援 mm / cm / 台尺 / 吋 混用換算', style: TextStyle(fontSize: 12, color: Color(0xFF8A94A6))),
+            Text('木材材積快速計算', style: TextStyle(fontSize: 12, color: Color(0xFF8A94A6))),
           ],
         ),
         centerTitle: true,
@@ -96,76 +73,44 @@ class _VolumeCalculatorPageState extends State<VolumeCalculatorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. 計算結果區塊 (大字顯示置頂)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 8)),
-                ],
-              ),
-              child: Column(
-                children: [
-                  const Text('總才數 (體積)', style: TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(_totalTsai.toStringAsFixed(2), style: const TextStyle(color: Colors.black, fontSize: 48, fontWeight: FontWeight.w900, height: 1.0)),
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 8.0, left: 4.0),
-                        child: Text('才', style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(height: 1, color: Colors.black12),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('總立方米', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
-                      Text('${_totalM3.toStringAsFixed(4)} m³', style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
-              ),
+            // 1. 分類切換標籤 (Tabs Section)
+            Row(
+              children: [
+                _buildTab(0, '台灣材積 (才)'),
+                _buildTab(1, '日本材積 (石)'),
+                _buildTab(2, '公制體積 (m³)'),
+              ],
             ),
 
-            const SizedBox(height: 32),
-            const Text('輸入尺寸與數量', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
+            const Text('輸入尺寸 (公分)', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
 
             // 2. 輸入表單區塊
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A2232),
+                color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
               ),
               child: Column(
                 children: [
-                  _buildInputField('長度', _lengthCtrl, _lengthUnit, (val) => setState(() { _lengthUnit = val!; _calculate(); })),
+                  _buildInputField('長度', _lengthCtrl, 'cm'),
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Colors.white12)),
-                  _buildInputField('寬度', _widthCtrl, _widthUnit, (val) => setState(() { _widthUnit = val!; _calculate(); })),
+                  _buildInputField('寬度', _widthCtrl, 'cm'),
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Colors.white12)),
-                  _buildInputField('厚度', _thicknessCtrl, _thicknessUnit, (val) => setState(() { _thicknessUnit = val!; _calculate(); })),
+                  _buildInputField('厚度 / 高度', _thicknessCtrl, 'cm'),
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Colors.white12)),
-                  _buildInputField('數量', _qtyCtrl, '件', null),
+                  _buildInputField('數量', _qtyCtrl, '支'),
                 ],
               ),
             ),
             
+            const SizedBox(height: 24),
+            
+            // 3. 換算說明區 / 計算結果區
+            showInstruction ? _buildInstructionCard() : _buildResultCard(vCm3, singleCm3),
+
             const SizedBox(height: 24),
             
             Row(
@@ -174,10 +119,7 @@ class _VolumeCalculatorPageState extends State<VolumeCalculatorPage> {
                 const Text('💡', style: TextStyle(fontSize: 14)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    '本工具採用體積才計算：\n1 才 = 1台尺 × 1台尺 × 1台寸\n若需計算面積才，請將厚度設為「1台寸」即可。',
-                    style: TextStyle(color: const Color(0xFF8A94A6).withOpacity(0.8), fontSize: 12, height: 1.5),
-                  ),
+                  child: Text('本工具僅供參考，實際施工請由專業師傅判斷。', style: TextStyle(color: const Color(0xFF8A94A6).withOpacity(0.8), fontSize: 12, height: 1.5)),
                 ),
               ],
             ),
@@ -188,13 +130,148 @@ class _VolumeCalculatorPageState extends State<VolumeCalculatorPage> {
     );
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, String unitValue, ValueChanged<String?>? onUnitChanged) {
+  Widget _buildTab(int index, String title) {
+    bool isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _selectedTab = index);
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFE5BA73).withOpacity(0.15) : const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? const Color(0xFFE5BA73) : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6),
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructionCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text('💡', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 8),
+              Text('材積換算說明', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 15, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildInstructionText('• 1才 = 1台尺 × 1台尺 × 10台尺\n  (30.3cm × 30.3cm × 303cm)'),
+          const SizedBox(height: 8),
+          _buildInstructionText('• 1台尺 = 30.3公分'),
+          const SizedBox(height: 8),
+          _buildInstructionText('• 1石 ≈ 10才'),
+          const SizedBox(height: 8),
+          _buildInstructionText('• 輸入公分，自動換算各單位'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionText(String text) {
+    return Text(text, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.5));
+  }
+
+  Widget _buildResultCard(double totalCm3, double singleCm3) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            _getMainResultText(totalCm3),
+            style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 32, fontWeight: FontWeight.w900),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          Container(height: 1, color: Colors.white12),
+          const SizedBox(height: 16),
+          ..._buildDetailRows(totalCm3, singleCm3),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildDetailRows(double totalCm3, double singleCm3) {
+    if (_selectedTab == 0) {
+      return [
+        _buildResultRow('單支材積', '${_format(singleCm3 / 27826.117)} 才'),
+        const SizedBox(height: 12),
+        _buildResultRow('總材積', '${_format(totalCm3 / 27826.117)} 才'),
+        const SizedBox(height: 12),
+        _buildResultRow('換算立方公尺', '${_format(totalCm3 / 1000000.0)} m³'),
+      ];
+    } else if (_selectedTab == 1) {
+      return [
+        _buildResultRow('單支材積 (石)', '${_format(singleCm3 / 278261.17)} 石'),
+        const SizedBox(height: 12),
+        _buildResultRow('總材積 (石)', '${_format(totalCm3 / 278261.17)} 石'),
+        const SizedBox(height: 12),
+        _buildResultRow('換算台才 (才)', '${_format(totalCm3 / 27826.117)} 才'),
+      ];
+    } else {
+      return [
+        _buildResultRow('單支體積', '${_format(singleCm3 / 1000000.0)} m³'),
+        const SizedBox(height: 12),
+        _buildResultRow('總體積', '${_format(totalCm3 / 1000000.0)} m³'),
+        const SizedBox(height: 12),
+        _buildResultRow('換算台才', '${_format(totalCm3 / 27826.117)} 才'),
+        const SizedBox(height: 12),
+        _buildResultRow('換算立方英呎', '${_format(totalCm3 / 28316.84659)} ft³'),
+      ];
+    }
+  }
+
+  Widget _buildResultRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        Text(
+          value,
+          style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInputField(String label, TextEditingController controller, String unit) {
     return Row(
       children: [
-        SizedBox(
-          width: 60,
-          child: Text(label, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 16)),
-        ),
+        SizedBox(width: 80, child: Text(label, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 15))),
         Expanded(
           child: TextField(
             controller: controller,
@@ -211,31 +288,7 @@ class _VolumeCalculatorPageState extends State<VolumeCalculatorPage> {
           ),
         ),
         const SizedBox(width: 12),
-        Container(
-          width: 80,
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF121824),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: onUnitChanged != null 
-              ? DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: unitValue,
-                    isExpanded: true,
-                    dropdownColor: const Color(0xFF1A2232),
-                    icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFE5BA73), size: 20),
-                    style: const TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold, fontSize: 14),
-                    items: _units.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
-                    onChanged: onUnitChanged,
-                  ),
-                )
-              : Center(
-                  child: Text(unitValue, style: const TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-        ),
+        Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold, fontSize: 16)),
       ],
     );
   }

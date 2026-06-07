@@ -1,6 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:ez_manager/Views/Domain/Toolbox/Tool/length_converter_page.dart';
 import 'package:ez_manager/Views/Domain/Toolbox/Tool/volume_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/wood_usage_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/paint_conversion_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/ceiling_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/board_thickness_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/hardware_reference_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/temperature_converter_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/angle_converter_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/pressure_converter_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/speed_converter_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/stair_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/cut_optimization_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/miter_angle_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/circle_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/wood_weight_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/moisture_calculator_page.dart';
+import 'package:ez_manager/Views/Domain/Toolbox/Tool/water_pipe_calculator_page.dart';
 
 class ToolboxPage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -43,72 +59,101 @@ class ToolboxPage extends StatelessWidget {
             subtitle: '木材才數與立方米換算', 
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VolumeCalculatorPage())),
           ),
-          _ToolTile(icon: Icons.calculate_outlined, title: '工時計算', subtitle: '快速估算班別與加班', onTap: () {}),
-          _ToolTile(icon: Icons.photo_camera_outlined, title: '照片紀錄', subtitle: '現場照片分類上傳', onTap: () {}),
-          _ToolTile(icon: Icons.inventory_2_outlined, title: '材料清單', subtitle: '常用材料與數量', onTap: () {}),
-          _ToolTile(icon: Icons.near_me_outlined, title: '快速派工', subtitle: '依空班人員派發任務', onTap: () {}),
-          
-          const SizedBox(height: 32),
-          
-          // 精選工具橫幅
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)], // 金色漸層
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 8)),
-              ],
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.auto_awesome, color: Colors.black),
-                SizedBox(width: 12),
-                Text(
-                  '本週精選工具：AI 影像辨識',
-                  style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
+          _ToolTile(
+            icon: Icons.forest_outlined, 
+            title: '木材用量估算', 
+            subtitle: '才積、耗損與價格換算', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WoodUsageCalculatorPage())),
           ),
-          
-          const SizedBox(height: 24),
-          
-          // 其他工具方格
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 2.2,
-            children: List.generate(4, (index) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A2232),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {},
-                    child: Center(
-                      child: Text('其他工具 ${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                  ),
-                ),
-              );
-            }),
+          _ToolTile(
+            icon: Icons.layers_outlined, 
+            title: '木工分板厚度', 
+            subtitle: '分 ↔ mm 快速查詢', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BoardThicknessCalculatorPage())),
+          ),
+          _ToolTile(
+            icon: Icons.format_paint_outlined, 
+            title: '塗料換算', 
+            subtitle: '比重換算 & 用量計算', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaintConversionPage())),
+          ),
+          _ToolTile(
+            icon: Icons.grid_on_outlined, 
+            title: '天花板用量計算', 
+            subtitle: '依坪數與板材估算片數', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CeilingCalculatorPage())),
+          ),
+          _ToolTile(
+            icon: Icons.hardware_outlined, 
+            title: '五金尺寸對照', 
+            subtitle: '常用螺絲與鉸鏈規格', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HardwareReferencePage())),
+          ),
+          _ToolTile(
+            icon: Icons.thermostat_outlined, 
+            title: '溫度換算', 
+            subtitle: '攝氏 / 華氏 / 克氏 即時換算', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TemperatureConverterPage())),
+          ),
+          _ToolTile(
+            icon: Icons.architecture_outlined, 
+            title: '角度換算', 
+            subtitle: '度 / 弧度 / 百分度 即時換算', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AngleConverterPage())),
+          ),
+          _ToolTile(
+            icon: Icons.speed_outlined, 
+            title: '壓力換算', 
+            subtitle: 'Bar / PSI / kPa / atm 即時換算', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PressureConverterPage())),
+          ),
+          _ToolTile(
+            icon: Icons.fast_forward_outlined, 
+            title: '速度換算', 
+            subtitle: 'm/s / km/h / ft/min / mph 即時換算', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeedConverterPage())),
+          ),
+          _ToolTile(
+            icon: Icons.stairs_outlined, 
+            title: '樓梯尺寸計算', 
+            subtitle: '級高 / 級深 / 淨高 / 規範檢核', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StairCalculatorPage())),
+          ),
+          _ToolTile(
+            icon: Icons.cut_outlined, 
+            title: '切割優化', 
+            subtitle: '一維板材/線材排程最省料', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CutOptimizationPage())),
+          ),
+          _ToolTile(
+            icon: Icons.category_outlined, 
+            title: '斜接角度計算', 
+            subtitle: '相框與多邊形邊框斜角', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MiterAngleCalculatorPage())),
+          ),
+          _ToolTile(
+            icon: Icons.pie_chart_outline, 
+            title: '圓形 / 弧形用料', 
+            subtitle: '周長、面積、弧長、弦長', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CircleCalculatorPage())),
+          ),
+          _ToolTile(
+            icon: Icons.scale_outlined, 
+            title: '木材重量估算', 
+            subtitle: '依木材種類密度估算重量', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WoodWeightCalculatorPage())),
+          ),
+          _ToolTile(
+            icon: Icons.water_drop_outlined, 
+            title: '含水率計算', 
+            subtitle: '判斷木材適用情境', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MoistureCalculatorPage())),
+          ),
+          _ToolTile(
+            icon: Icons.water_outlined, 
+            title: '水管管徑計算', 
+            subtitle: '依設備或流量估算管徑與壓損', 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WaterPipeCalculatorPage())),
           ),
           const SizedBox(height: 40),
         ],
