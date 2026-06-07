@@ -126,7 +126,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
     if (_velocity > 1.8) {
       vStatus = '偏高';
       vBgColor = const Color(0xFF4A3419);
-      vTextColor = const Color(0xFFD4AF37);
+      vTextColor = const Color(0xFFE5BA73);
     } else if (_velocity > 0 && _velocity < 0.6) {
       vStatus = '偏低';
       vBgColor = const Color(0xFF4A3419);
@@ -134,9 +134,9 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -173,7 +173,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
             // 管路條件 (固定常駐)
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -199,9 +199,9 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
             Container(
               padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 0),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E), 
+                color: const Color(0xFF1A2232), 
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,13 +212,13 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF121212),
+                      color: const Color(0xFF121824),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
                       child: Text(
                         _recSize,
-                        style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 36, fontWeight: FontWeight.w900),
+                        style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 36, fontWeight: FontWeight.w900),
                       ),
                     ),
                   ),
@@ -256,7 +256,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -301,12 +301,12 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: const Color(0xFF1A2232),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.transparent, width: 1.5),
+            border: Border.all(color: isSelected ? const Color(0xFFE5BA73) : Colors.transparent, width: 1.5),
           ),
           alignment: Alignment.center,
-          child: Text(text, style: TextStyle(color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8A94A6), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+          child: Text(text, style: TextStyle(color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
         ),
       ),
     );
@@ -325,12 +325,12 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.15) : const Color(0xFF121212),
+            color: isSelected ? const Color(0xFFE5BA73).withOpacity(0.15) : const Color(0xFF121824),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05), width: 1.5),
+            border: Border.all(color: isSelected ? const Color(0xFFE5BA73) : Colors.white.withOpacity(0.05), width: 1.5),
           ),
           alignment: Alignment.center,
-          child: Text(mat, style: TextStyle(color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8A94A6), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
+          child: Text(mat, style: TextStyle(color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
         ),
       ),
     );
@@ -339,7 +339,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
   Widget _buildFixtureCard() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -364,7 +364,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
   Widget _buildDirectFlowCard() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -384,7 +384,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
           child: Row(
             children: [
               Expanded(
@@ -396,7 +396,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
                   decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                 ),
               ),
-              Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -408,7 +408,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
     return Expanded(
       child: Column(
         children: [
-          Text(value, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(value, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
         ],

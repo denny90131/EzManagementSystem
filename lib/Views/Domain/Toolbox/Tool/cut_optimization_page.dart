@@ -149,9 +149,9 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -174,7 +174,7 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
             // 1. 原料規格區
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -191,7 +191,7 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
             // 2. 需要的長度清單區
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -201,12 +201,12 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+                    decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
                     child: TextField(
                       controller: _reqCtrl,
                       keyboardType: TextInputType.text,
                       onChanged: (_) => _calculate(),
-                      style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 18, fontWeight: FontWeight.bold),
                       decoration: const InputDecoration(
                         hintText: '輸入裁切尺寸...',
                         hintStyle: TextStyle(color: Colors.white24),
@@ -229,7 +229,7 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
             if (_stocks.isNotEmpty && !_hasError) ...[
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -251,7 +251,7 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
+                    color: const Color(0xFF1A2232),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -266,11 +266,11 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFD4AF37).withOpacity(0.15),
-                              border: Border.all(color: const Color(0xFFD4AF37)),
+                              color: const Color(0xFFE5BA73).withOpacity(0.15),
+                              border: Border.all(color: const Color(0xFFE5BA73)),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text('${cutSize.toString().replaceAll(RegExp(r'\.0$'), '')} cm', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 13)),
+                            child: Text('${cutSize.toString().replaceAll(RegExp(r'\.0$'), '')} cm', style: const TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold, fontSize: 13)),
                           );
                         }).toList(),
                       ),
@@ -310,7 +310,7 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
           child: Row(
             children: [
               Expanded(
@@ -322,7 +322,7 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
                   decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                 ),
               ),
-              Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -338,7 +338,7 @@ class _CutOptimizationPageState extends State<CutOptimizationPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
-          Text(value, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(value, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
     );

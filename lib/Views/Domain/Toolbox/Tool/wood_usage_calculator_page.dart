@@ -88,15 +88,16 @@ class _WoodUsageCalculatorPageState extends State<WoodUsageCalculatorPage> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFF1A2232),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildInputField('長度', _lengthCtrl, 'cm'),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Colors.white12)),
+                  const SizedBox(height: 12),
                   _buildInputField('寬度', _widthCtrl, 'cm'),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Colors.white12)),
+                  const SizedBox(height: 12),
                   _buildInputField('厚度', _thicknessCtrl, 'cm'),
                 ],
               ),
@@ -110,15 +111,16 @@ class _WoodUsageCalculatorPageState extends State<WoodUsageCalculatorPage> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFF1A2232),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildInputField('件數', _qtyCtrl, '件'),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Colors.white12)),
+                  const SizedBox(height: 12),
                   _buildInputField('單價 (每才)', _priceCtrl, 'NT\$'),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Colors.white12)),
+                  const SizedBox(height: 12),
                   _buildInputField('耗損率', _lossCtrl, '%'),
                 ],
               ),
@@ -152,28 +154,28 @@ class _WoodUsageCalculatorPageState extends State<WoodUsageCalculatorPage> {
   }
 
   Widget _buildInputField(String label, TextEditingController controller, String unit) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 90, child: Text(label, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 15))),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (val) => _calculate(),
-            textAlign: TextAlign.right,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(
-              hintText: '0',
-              hintStyle: TextStyle(color: Colors.white24),
-              border: InputBorder.none,
-              isDense: true,
-            ),
+        Text(label, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (val) => _calculate(),
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  decoration: const InputDecoration(hintText: '0', hintStyle: TextStyle(color: Colors.white24), border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                ),
+              ),
+              Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
           ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 40,
-          child: Text(unit, textAlign: TextAlign.right, style: const TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold, fontSize: 16)),
         ),
       ],
     );
@@ -183,7 +185,7 @@ class _WoodUsageCalculatorPageState extends State<WoodUsageCalculatorPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -217,8 +219,8 @@ class _WoodUsageCalculatorPageState extends State<WoodUsageCalculatorPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF1A2232),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
         boxShadow: [BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 4))],
       ),

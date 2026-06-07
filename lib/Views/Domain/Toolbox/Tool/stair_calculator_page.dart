@@ -141,9 +141,9 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -256,12 +256,12 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF121212),
+                      color: const Color(0xFF121824),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5)),
+                      border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
                     ),
                     child: Center(
-                      child: Text('$_steps 階', style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 42, fontWeight: FontWeight.w900)),
+                      child: Text('$_steps 階', style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 42, fontWeight: FontWeight.w900)),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -316,7 +316,7 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
                             Text('階 ${step['k']}', style: TextStyle(color: isDanger ? Colors.redAccent : Colors.white, fontSize: 14, fontWeight: isDanger ? FontWeight.bold : FontWeight.normal)),
                             Row(
                               children: [
-                                Text('${step['headroom'].toStringAsFixed(1)} cm', style: TextStyle(color: isDanger ? Colors.redAccent : const Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text('${step['headroom'].toStringAsFixed(1)} cm', style: TextStyle(color: isDanger ? Colors.redAccent : const Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
                                 if (isDanger) const Padding(padding: EdgeInsets.only(left: 8.0), child: Text('⚠️', style: TextStyle(fontSize: 14))),
                               ],
                             ),
@@ -368,7 +368,7 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -388,7 +388,7 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
           child: Row(
             children: [
               Expanded(
@@ -400,7 +400,7 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
                   decoration: const InputDecoration(hintText: '0', hintStyle: TextStyle(color: Colors.white24), border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                 ),
               ),
-              Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -416,12 +416,12 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.15) : const Color(0xFF121212),
+            color: isSelected ? const Color(0xFFE5BA73).withOpacity(0.15) : const Color(0xFF121824),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05), width: 1.5),
+            border: Border.all(color: isSelected ? const Color(0xFFE5BA73) : Colors.white.withOpacity(0.05), width: 1.5),
           ),
           alignment: Alignment.center,
-          child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8A94A6), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
+          child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
         ),
       ),
     );
@@ -435,7 +435,7 @@ class _StairCalculatorPageState extends State<StairCalculatorPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
-          Text(value, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(value, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
     );

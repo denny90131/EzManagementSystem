@@ -61,9 +61,9 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
     double areaM2 = ping * 3.3058;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 極深黑色背景
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 深灰色 Header
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -86,7 +86,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
             // === 1. 施工面積輸入區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -101,7 +101,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
             // === 2. 板材規格選擇區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -116,7 +116,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
             // === 3. 損耗設定區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -131,22 +131,22 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
             // === 4. 計算結果區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 children: [
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF121212),
+                      color: const Color(0xFF121824),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5)),
+                      border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
                     ),
                     child: Column(
                       children: [
                         Text(
                           '$orderPieces',
-                          style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 48, fontWeight: FontWeight.w900, height: 1.0),
+                          style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 48, fontWeight: FontWeight.w900, height: 1.0),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -172,7 +172,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
             // === 5. 坪數速查表區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -200,7 +200,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
             // === 6. 計算原理說明區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -208,7 +208,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
                     children: [
                       Text('💡', style: TextStyle(fontSize: 16)),
                       SizedBox(width: 8),
-                      Text('計算原理', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 15, fontWeight: FontWeight.bold)),
+                      Text('計算原理', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 15, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -248,7 +248,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
           child: Row(
             children: [
               Expanded(
@@ -260,7 +260,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
                   decoration: const InputDecoration(hintText: '0', hintStyle: TextStyle(color: Colors.white24), border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                 ),
               ),
-              Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -278,19 +278,19 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF121212),
+          color: const Color(0xFF121824),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05), width: 1.5),
+          border: Border.all(color: isSelected ? const Color(0xFFE5BA73) : Colors.white.withOpacity(0.05), width: 1.5),
         ),
         child: Row(
           children: [
-            Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8A94A6)),
+            Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6)),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(data['title'], style: TextStyle(color: isSelected ? const Color(0xFFD4AF37) : Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(data['title'], style: TextStyle(color: isSelected ? const Color(0xFFE5BA73) : Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(data['sub'], style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
                   const SizedBox(height: 2),
@@ -324,7 +324,7 @@ class _CeilingCalculatorPageState extends State<CeilingCalculatorPage> {
         children: [
           Expanded(flex: 2, child: Text(col1, style: TextStyle(color: isHeader ? const Color(0xFF8A94A6) : Colors.white, fontSize: 14))),
           Expanded(flex: 3, child: Text(col2, style: TextStyle(color: isHeader ? const Color(0xFF8A94A6) : Colors.white, fontSize: 14))),
-          Expanded(flex: 3, child: Text(col3, style: TextStyle(color: isHeader ? const Color(0xFF8A94A6) : const Color(0xFFD4AF37), fontSize: 14, fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text(col3, style: TextStyle(color: isHeader ? const Color(0xFF8A94A6) : const Color(0xFFE5BA73), fontSize: 14, fontWeight: FontWeight.bold))),
         ],
       ),
     );

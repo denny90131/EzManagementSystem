@@ -61,9 +61,9 @@ class _MiterAngleCalculatorPageState extends State<MiterAngleCalculatorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -87,7 +87,7 @@ class _MiterAngleCalculatorPageState extends State<MiterAngleCalculatorPage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -110,8 +110,7 @@ class _MiterAngleCalculatorPageState extends State<MiterAngleCalculatorPage> {
 
             // 2. 輸入邊數區
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -124,7 +123,7 @@ class _MiterAngleCalculatorPageState extends State<MiterAngleCalculatorPage> {
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+                        decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
                         child: Row(
                           children: [
                             Expanded(
@@ -136,7 +135,7 @@ class _MiterAngleCalculatorPageState extends State<MiterAngleCalculatorPage> {
                                 decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                               ),
                             ),
-                            const Text('邊', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+                            const Text('邊', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -150,7 +149,7 @@ class _MiterAngleCalculatorPageState extends State<MiterAngleCalculatorPage> {
             // 3. 換算結果區
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -214,7 +213,7 @@ class _MiterAngleCalculatorPageState extends State<MiterAngleCalculatorPage> {
           Text(
             value,
             style: TextStyle(
-              color: isHighlight ? const Color(0xFFD4AF37) : Colors.white,
+              color: isHighlight ? const Color(0xFFE5BA73) : Colors.white,
               fontSize: isHighlight ? 28 : 18,
               fontWeight: FontWeight.bold,
             ),

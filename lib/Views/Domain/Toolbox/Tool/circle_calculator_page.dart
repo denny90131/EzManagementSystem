@@ -70,9 +70,9 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -95,7 +95,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
             // 1. 輸入尺寸區
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -110,7 +110,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
             // 2. 整圓結果區
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -126,7 +126,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
             // 3. 扇形 / 弧形動態結果區
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -135,7 +135,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
                       text: '扇形 / 弧 (',
                       style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       children: [
-                        TextSpan(text: '$_angleTitleStr°', style: const TextStyle(color: Color(0xFFD4AF37))),
+                        TextSpan(text: '$_angleTitleStr°', style: const TextStyle(color: Color(0xFFE5BA73))),
                         const TextSpan(text: ')'),
                       ],
                     ),
@@ -180,7 +180,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
           child: Row(
             children: [
               Expanded(
@@ -192,7 +192,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
                   decoration: const InputDecoration(hintText: '0', hintStyle: TextStyle(color: Colors.white24), border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                 ),
               ),
-              Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -215,7 +215,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
               Text(
                 isNull ? '—' : _format(value),
                 style: TextStyle(
-                  color: const Color(0xFFD4AF37),
+                  color: const Color(0xFFE5BA73),
                   fontSize: isHighlight ? 28 : 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -224,7 +224,7 @@ class _CircleCalculatorPageState extends State<CircleCalculatorPage> {
                 const SizedBox(width: 6),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2.0),
-                  child: Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 14)),
+                  child: Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 14)),
                 ),
               ]
             ],

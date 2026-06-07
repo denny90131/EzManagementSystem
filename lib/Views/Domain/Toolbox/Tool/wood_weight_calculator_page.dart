@@ -59,9 +59,9 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
     double totalWeight = unitWeight * q;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -84,7 +84,7 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
             // === 1. 木材尺寸輸入區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -105,7 +105,7 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
             // === 2. 木材種類選擇區 ===
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -134,14 +134,14 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.15) : const Color(0xFF121212),
+                              color: isSelected ? const Color(0xFFE5BA73).withOpacity(0.15) : const Color(0xFF121824),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05), width: 1.5),
+                              border: Border.all(color: isSelected ? const Color(0xFFE5BA73) : Colors.white.withOpacity(0.05), width: 1.5),
                             ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(wood['name'], style: TextStyle(color: isSelected ? const Color(0xFFD4AF37) : Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                                Text(wood['name'], style: TextStyle(color: isSelected ? const Color(0xFFE5BA73) : Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                                 const SizedBox(height: 4),
                                 Text('${wood['density']} kg/m³', style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
                               ],
@@ -159,7 +159,7 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
             // === 3. 換算結果區 ===
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -201,7 +201,7 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: const Color(0xFF121824), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
           child: Row(
             children: [
               Expanded(
@@ -213,7 +213,7 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
                   decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                 ),
               ),
-              Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -232,7 +232,7 @@ class _WoodWeightCalculatorPageState extends State<WoodWeightCalculatorPage> {
           Text(
             value,
             style: TextStyle(
-              color: isHighlight ? const Color(0xFFD4AF37) : Colors.white,
+              color: isHighlight ? const Color(0xFFE5BA73) : Colors.white,
               fontSize: isHighlight ? 28 : 18,
               fontWeight: FontWeight.bold,
             ),

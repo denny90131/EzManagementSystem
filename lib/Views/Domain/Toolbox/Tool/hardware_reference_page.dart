@@ -112,9 +112,9 @@ class _HardwareReferencePageState extends State<HardwareReferencePage> {
     final currentCategory = _categories[_currentIndex];
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -138,7 +138,7 @@ class _HardwareReferencePageState extends State<HardwareReferencePage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: const Color(0xFF1A2232),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -153,22 +153,22 @@ class _HardwareReferencePageState extends State<HardwareReferencePage> {
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.15) : const Color(0xFF121212),
+                          color: isSelected ? const Color(0xFFE5BA73).withOpacity(0.15) : const Color(0xFF121824),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.05),
+                            color: isSelected ? const Color(0xFFE5BA73) : Colors.white.withOpacity(0.05),
                             width: 1.5,
                           ),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(category.icon, color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8A94A6), size: 24),
+                            Icon(category.icon, color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), size: 24),
                             const SizedBox(height: 6),
                             Text(
                               category.name,
                               style: TextStyle(
-                                color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8A94A6),
+                                color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6),
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                 fontSize: 13,
                               ),
@@ -188,7 +188,7 @@ class _HardwareReferencePageState extends State<HardwareReferencePage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: const Color(0xFF1A2232),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -215,7 +215,7 @@ class _HardwareReferencePageState extends State<HardwareReferencePage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: const Color(0xFF1A2232),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -225,7 +225,7 @@ class _HardwareReferencePageState extends State<HardwareReferencePage> {
                     children: [
                       Text('💡', style: TextStyle(fontSize: 16)),
                       SizedBox(width: 8),
-                      Text('選用建議', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 15, fontWeight: FontWeight.bold)),
+                      Text('選用建議', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 15, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -258,7 +258,7 @@ class _HardwareReferencePageState extends State<HardwareReferencePage> {
 
   // 共用繪製表格 Row 元件
   Widget _buildTableRow(String col1, String col2, String col3, {bool isHeader = false, bool isLast = false}) {
-    final Color textColor = isHeader ? const Color(0xFFD4AF37) : const Color(0xFFE0E0E0);
+    final Color textColor = isHeader ? const Color(0xFFE5BA73) : const Color(0xFFE0E0E0);
     final FontWeight weight = isHeader ? FontWeight.bold : FontWeight.normal;
     
     return Container(

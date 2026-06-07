@@ -81,9 +81,9 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑色背景
+      backgroundColor: const Color(0xFF121824), // 統一深底色
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰色 Header
+        backgroundColor: const Color(0xFF1A2232), // 統一卡片色
         foregroundColor: Colors.white,
         title: const Column(
           children: [
@@ -108,7 +108,7 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: const Color(0xFF1A2232),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -123,7 +123,7 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF121212),
+                      color: const Color(0xFF121824),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.white.withOpacity(0.05)),
                     ),
@@ -145,7 +145,7 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
                             ),
                           ),
                         ),
-                        const Text('分', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 20, fontWeight: FontWeight.bold)),
+                        const Text('分', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 20, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -172,7 +172,7 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: const Color(0xFF1A2232),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -203,7 +203,7 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: const Color(0xFF1A2232),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -250,16 +250,16 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF121212),
+          color: const Color(0xFF121824),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5)),
+          border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(value, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text(unit, style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
+            Text(unit, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 12)),
           ],
         ),
       ),
@@ -267,7 +267,7 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
   }
 
   Widget _buildTableRow(String col1, String col2, String col3, {bool isHeader = false, bool isLast = false}) {
-    final Color textColor = isHeader ? const Color(0xFFD4AF37) : const Color(0xFFE0E0E0);
+    final Color textColor = isHeader ? const Color(0xFFE5BA73) : const Color(0xFFE0E0E0);
     final FontWeight weight = isHeader ? FontWeight.bold : FontWeight.normal;
     
     return Container(
@@ -307,7 +307,7 @@ class _BoardThicknessCalculatorPageState extends State<BoardThicknessCalculatorP
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF121212),
+                  color: const Color(0xFF121824),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.white.withOpacity(0.1)),
                 ),
