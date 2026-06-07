@@ -74,6 +74,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     emailController.text = userData['email'] ?? '';
     addressController.text = userData['address'] ?? '';
+    
+    // 載入使用者大頭貼 Base64
+    _originalPictureBase64 = userData['picture'];
   }
 
   Future<void> _loadUserData() async {

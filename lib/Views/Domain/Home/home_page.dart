@@ -300,6 +300,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _showDispatchDialog(BuildContext context) {
     String? selectedSite;
     List<String> selectedEmployees = [];
+    final TextEditingController notesController = TextEditingController();
 
     // 模擬資料列表
     final List<String> availableSites = ['中山區辦公大樓空調維護', '信義區百貨管線重整', '大安區豪宅裝潢工程'];
@@ -381,6 +382,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           }).toList(),
                         );
                       },
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('派工備註', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 3,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: '輸入派工備註事項（例如：請攜帶A字梯）...',
+                        hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
+                        filled: true,
+                        fillColor: const Color(0xFF121824),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+                      ),
                     ),
                   ],
                 ),
@@ -766,13 +783,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             ],
                           ),
                           const SizedBox(height: 16),
+                          _buildCaseInfoRow(Icons.calendar_today, '訂單日期：2023-11-20', const Color(0xFFE65100)),
+                          const SizedBox(height: 10),
                           _buildCaseInfoRow(Icons.location_on, '台北市中山區南京東路1段1號', Colors.red.shade400),
                           const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.people, '派工人員: 測試員工1, 測試員工2', Colors.blue.shade400),
+                          _buildCaseInfoRow(Icons.person_outline, '業主：王大明 / 0912-345-678', Colors.teal.shade400),
                           const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.access_time, '09:00 - 18:00', const Color(0xFFE65100)),
+                          _buildCaseInfoRow(Icons.handshake_outlined, '發包：李老闆 / 0987-654-321', Colors.orange.shade400),
                           const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.work, '例行性空調保養與濾網更換', Colors.green.shade400),
+                          _buildCaseInfoRow(Icons.people, '派工：測試員工1, 測試員工2', Colors.blue.shade400),
+                          const SizedBox(height: 10),
+                          _buildCaseInfoRow(Icons.note_alt_outlined, '備註：例行性空調保養，請攜帶A字梯', Colors.green.shade400),
                         ],
                       ),
                     ),
