@@ -4,8 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Authenticator/Login.dart';
 import '../Setting/EditRegisterInfo.dart';
 import '../../../../Services/Subscription/api_service.dart';
+import '../../../../Services/Invite/api_service.dart'; // 引入 Invite 團隊服務
 import '../Setting/ManageSubscription.dart'; // 引入新分離的檔案
 import '../Setting/InviteMember.dart'; // 引入邀請成員介面
+import '../Setting/ManageMyTeam.dart'; // 引入管理我的團隊介面
 
 class SettingsBottomSheet extends StatefulWidget {
   final String userName;
@@ -218,6 +220,102 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       },
     );
   }
+  
+  void _showJoinTeamDialog() {
+    final TextEditingController controller = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E2532),
+          title: const Text('加入團隊', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('請輸入團隊邀請碼：', style: TextStyle(color: Color(0xFF8A94A6))),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                style: const TextStyle(color: Colors.white, letterSpacing: 2.0),
+                decoration: InputDecoration(
+                  hintText: '例如: EZ-123456',
+                  hintStyle: const TextStyle(color: Colors.white30),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white.withOpacity(0.5))),
+                  focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE5BA73))),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: isSubmitting ? null : () async {
+                final code = controller.text.trim();
+                if (code.isEmpty) return;
+                
+                setDialogState(() => isSubmitting = true);
+                
+                if (_userId == null) {
+                  ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('無法取得使用者資訊，請重新登入')));
+                  setDialogState(() => isSubmitting = false);
+                  return;
+                }
+                
+                // 呼叫真實 API 加入團隊
+                final (isSuccess, message) = await ApiService.joinTeamByCode(code, _userId!);
+
+                if (!mounted) return;
+
+                if (isSuccess) {
+                  Navigator.pop(ctx); // 關閉對話框
+                  ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+                    SnackBar(content: Text(message)),
+                  );
+                  _fetchTeams(); // 重新整理團隊列表 (取得剛加入的團隊資訊)
+                } else {
+                  setDialogState(() => isSubmitting = false); // 恢復按鈕狀態
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                }
+              },
+              child: isSubmitting 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFE5BA73)))
+                  : const Text('加入', style: TextStyle(color: Color(0xFFE5BA73))),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMyTeamDialog() {
+    if (_selectedTeamId == null) {
+      ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('請先選擇或建立一個團隊')));
+      return;
+    }
+
+    final currentTeam = _teams.firstWhere(
+      (t) => t['TeamUUID'] == _selectedTeamId,
+      orElse: () => <String, dynamic>{'TeamName': '未知團隊'},
+    );
+    final String currentTeamName = currentTeam['TeamName'];
+
+    // 關閉 BottomSheet
+    Navigator.pop(context);
+
+    // 導航至管理團隊頁面
+    Navigator.push(
+      widget.parentContext,
+      MaterialPageRoute(
+        builder: (ctx) => ManageMyTeamPage(teamUUID: _selectedTeamId!, teamName: currentTeamName),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) { // 'context' here is the sheetContextｓ
@@ -286,60 +384,87 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 // --- 快捷操作按鈕 (依據訂閱狀態切換) ---
                 if (!_isLoadingPlan) ...[
                   const SizedBox(width: 12),
-                  if (_activePlan != null && _activePlan!.remainingDays > 0)
-                    // 已訂閱：顯示邀請成員
-                    InkWell(
-                      onTap: () {
-                        final currentTeam = _teams.firstWhere(
-                          (t) => t['TeamUUID'] == _selectedTeamId,
-                          orElse: () => <String, dynamic>{'TeamName': '未知團隊'},
-                        );
-                        InviteMemberDialog.show(
-                          widget.parentContext, 
-                          teamUUID: _selectedTeamId!, 
-                          teamName: currentTeam['TeamName'],
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE5BA73).withOpacity(0.1),
-                          border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_activePlan != null && _activePlan!.remainingDays > 0)
+                        // 已訂閱：顯示邀請成員
+                        InkWell(
+                          onTap: () {
+                            final currentTeam = _teams.firstWhere(
+                              (t) => t['TeamUUID'] == _selectedTeamId,
+                              orElse: () => <String, dynamic>{'TeamName': '未知團隊'},
+                            );
+                            InviteMemberDialog.show(
+                              widget.parentContext, 
+                              teamUUID: _selectedTeamId!, 
+                              teamName: currentTeam['TeamName'],
+                            );
+                          },
                           borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE5BA73).withOpacity(0.1),
+                              border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.group_add_outlined, color: Color(0xFFE5BA73), size: 16),
+                                SizedBox(width: 4),
+                                Text('邀請成員', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        // 未訂閱：顯示升級方案
+                        InkWell(
+                          onTap: _showSubscriptionDialog, // 點擊直接開啟升級訂閱視窗
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE5BA73).withOpacity(0.1),
+                              border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.rocket_launch_outlined, color: Color(0xFFE5BA73), size: 16),
+                                SizedBox(width: 4),
+                                Text('升級方案', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.group_add_outlined, color: Color(0xFFE5BA73), size: 16),
-                            SizedBox(width: 4),
-                            Text('邀請成員', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 12, fontWeight: FontWeight.bold)),
-                          ],
+                      const SizedBox(height: 8),
+                      // 加入團隊按鈕
+                      InkWell(
+                        onTap: _showJoinTeamDialog, // 點擊呼叫剛剛寫的彈窗方法
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.login, color: Colors.white70, size: 16),
+                              SizedBox(width: 4),
+                              Text('加入團隊', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
                       ),
-                    )
-                  else
-                    // 未訂閱：顯示升級方案
-                    InkWell(
-                      onTap: _showSubscriptionDialog, // 點擊直接開啟升級訂閱視窗
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE5BA73).withOpacity(0.1),
-                          border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.rocket_launch_outlined, color: Color(0xFFE5BA73), size: 16),
-                            SizedBox(width: 4),
-                            Text('升級方案', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 12, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
+                    ],
+                  ),
                 ],
               ],
             ),
@@ -454,6 +579,12 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               });
             },
             trailing: !widget.isProfileComplete ? const Icon(Icons.error, color: Colors.red, size: 20) : null,
+          ),
+          // 管理我的團隊
+          ListTile(
+            leading: const Icon(Icons.group, color: Color(0xFFE5BA73)),
+            title: const Text('管理我的團隊', style: TextStyle(color: Colors.white)),
+            onTap: _showMyTeamDialog,
           ),
           // 管理訂閱方案
           ListTile(

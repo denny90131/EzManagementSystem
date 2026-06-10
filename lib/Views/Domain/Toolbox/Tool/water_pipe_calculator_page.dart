@@ -274,11 +274,21 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
 
             // 5. 底部安全提示
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('⚠️', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                Expanded(child: Text('本工具僅供參考，實際施工請由專業師傅判斷。', style: TextStyle(color: const Color(0xFF8A94A6).withOpacity(0.8), fontSize: 12, height: 1.5))),
+              children: const [
+                Padding(
+                  padding: EdgeInsets.only(top: 2.0),
+                  child: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 16),
+                ),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    '本工具僅供參考，實際施工請由專業師傅判斷。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.redAccent, fontSize: 12, height: 1.5),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 40),

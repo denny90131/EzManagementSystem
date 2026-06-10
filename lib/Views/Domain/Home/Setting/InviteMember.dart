@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../Services/Invite/api_service.dart';
 
 class InviteMemberDialog extends StatefulWidget {
   final String teamUUID;
@@ -167,17 +168,20 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
       _errorMessage = null;
     });
 
-    // TODO: 之後請在這裡呼叫真實的邀請 API
-    // final result = await TeamApiService.inviteMember(teamUUID: widget.teamUUID, contact: contactInfo);
-    
-    // 目前先模擬等待 1 秒鐘
-    await Future.delayed(const Duration(seconds: 1));
+    // 呼叫真實的邀請 API
+    final (isSuccess, message) = await ApiService.inviteToTeam(contactInfo, widget.teamUUID);
 
     if (!mounted) return;
-    setState(() => _isSubmitting = false);
+    
+    setState(() {
+      _isSubmitting = false;
+      if (!isSuccess) _errorMessage = message;
+    });
 
-    // 成功後關閉並顯示提示
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('邀請發送成功！')));
+    if (isSuccess) {
+      // 成功後關閉並顯示提示
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 }
