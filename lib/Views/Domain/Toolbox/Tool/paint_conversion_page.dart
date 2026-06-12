@@ -255,7 +255,7 @@ class _PaintConversionPageState extends State<PaintConversionPage> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(12)),
           child: Column(
             children: [
               _buildInputField('施工面積', _areaCtrl, 'm²', _calculateTab2),

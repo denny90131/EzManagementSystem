@@ -43,9 +43,7 @@ class ToolboxPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('現場常用工具集中管理', style: TextStyle(fontSize: 16, color: Color(0xFF8A94A6), fontWeight: FontWeight.w500)),
-          const SizedBox(height: 24),
-          
+
           // 工具列表
           _ToolTile(
             icon: Icons.square_foot_outlined, 

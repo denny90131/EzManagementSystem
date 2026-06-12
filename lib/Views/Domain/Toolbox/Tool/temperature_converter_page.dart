@@ -114,13 +114,13 @@ class _TemperatureConverterPageState extends State<TemperatureConverterPage> {
                 children: [
                   const Text('快速帶入', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
                     children: [
-                      _buildShortcutBtn('水的沸點 100°C', 'C', 100),
-                      _buildShortcutBtn('體溫 37°C', 'C', 37),
-                      _buildShortcutBtn('室溫 72°F', 'F', 72),
+                      Expanded(child: _buildShortcutBtn('沸水\n100°C', 'C', 100)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _buildShortcutBtn('體溫\n37°C', 'C', 37)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _buildShortcutBtn('室溫\n72°F', 'F', 72)),
                     ],
                   ),
                 ],
@@ -221,8 +221,13 @@ class _TemperatureConverterPageState extends State<TemperatureConverterPage> {
   Widget _buildShortcutBtn(String label, String unit, double value) {
     return OutlinedButton(
       onPressed: () => _setShortcut(unit, value),
-      style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.white.withOpacity(0.1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), foregroundColor: const Color(0xFFE5BA73), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-      child: Text(label, style: const TextStyle(fontSize: 13)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: Colors.white.withOpacity(0.1)), 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), 
+        foregroundColor: const Color(0xFFE5BA73), 
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      ),
+      child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, height: 1.3)),
     );
   }
 

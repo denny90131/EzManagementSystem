@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Authenticator/Login.dart';
 import '../Setting/EditRegisterInfo.dart';
@@ -305,13 +306,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     );
     final String currentTeamName = currentTeam['TeamName'];
 
-    // 關閉 BottomSheet
-    Navigator.pop(context);
-
-    // 導航至管理團隊頁面
+    // 不關閉 BottomSheet，直接導航，這樣返回時才會回到原本的選單(大頭貼頁面)
     Navigator.push(
       widget.parentContext,
-      MaterialPageRoute(
+      CupertinoPageRoute(
         builder: (ctx) => ManageMyTeamPage(teamUUID: _selectedTeamId!, teamName: currentTeamName),
       ),
     );
@@ -573,8 +571,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               if (!widget.isProfileComplete) {
                 ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('請完善您的個人資料！'), duration: Duration(seconds: 1))); // 顯示2秒
               }
-              Navigator.pop(context); // Close the bottom sheet
-              Navigator.push(widget.parentContext, MaterialPageRoute(builder: (ctx) => EditProfileScreen(userData: widget.fullUserData))).then((_) {
+              // 不關閉 BottomSheet，這樣從編輯頁面返回時才能回到大頭貼選單
+              Navigator.push(widget.parentContext, CupertinoPageRoute(builder: (ctx) => EditProfileScreen(userData: widget.fullUserData))).then((_) {
                 if (widget.onDataUpdated != null) widget.onDataUpdated!(); // 編輯完成返回後，觸發更新
               });
             },

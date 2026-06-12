@@ -273,7 +273,7 @@ class _WaterPipeCalculatorPageState extends State<WaterPipeCalculatorPage> {
             const SizedBox(height: 24),
 
             // 5. 底部安全提示
-            Row(
+             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [

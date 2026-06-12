@@ -115,12 +115,15 @@ class ReportPage extends StatelessWidget {
           const SizedBox(height: 80),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'report_fab_tag', // 給予獨立的 heroTag 避免衝突
-        onPressed: () {},
-        backgroundColor: const Color(0xFFE5BA73), // 琥珀金
-        icon: const Icon(Icons.add_a_photo_outlined, color: Colors.black),
-        label: const Text('新增回報', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80.0), // 抬高按鈕，避免被底部導航列遮擋
+        child: FloatingActionButton.extended(
+          heroTag: 'report_fab_tag', // 給予獨立的 heroTag 避免衝突
+          onPressed: () {},
+          backgroundColor: const Color(0xFFE5BA73), // 琥珀金
+          icon: const Icon(Icons.add_a_photo_outlined, color: Colors.black),
+          label: const Text('新增回報', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        ),
       ),
     );
   }

@@ -39,6 +39,136 @@ class PettyCashPage extends StatelessWidget {
     );
   }
 
+  // 彈出視窗專用的輸入框元件 (與 HomePage 風格一致)
+  Widget _buildDialogTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false, VoidCallback? onTap}) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      readOnly: readOnly,
+      onTap: onTap,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
+        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
+        filled: true,
+        fillColor: const Color(0xFF121824),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+      ),
+    );
+  }
+
+  // 顯示「新增紀錄」彈出視窗
+  void _showAddTransactionDialog(BuildContext context) {
+    final TextEditingController titleController = TextEditingController();
+    final TextEditingController amountController = TextEditingController();
+    final TextEditingController dateController = TextEditingController(
+      text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
+    );
+    final TextEditingController notesController = TextEditingController();
+    bool isExpense = true; // 預設為「支出」
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A2232), // 深色卡片背景
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('新增紀錄', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 支出與收入切換按鈕
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => setState(() => isExpense = true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isExpense ? Colors.redAccent : const Color(0xFF121824),
+                                foregroundColor: isExpense ? Colors.white : const Color(0xFF8A94A6),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text('支出', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => setState(() => isExpense = false),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: !isExpense ? Colors.greenAccent : const Color(0xFF121824),
+                                foregroundColor: !isExpense ? Colors.black : const Color(0xFF8A94A6),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text('收入', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _buildDialogTextField(titleController, '項目名稱 / 摘要', Icons.edit_note_outlined),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(amountController, '金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(
+                        dateController, 
+                        '日期', 
+                        Icons.calendar_today_outlined, 
+                        readOnly: true, 
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              dateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                            });
+                          }
+                        }
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(notesController, '備註 (選填)', Icons.note_alt_outlined, maxLines: 3),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6))),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // TODO: 這裡之後可以加入呼叫 API 的邏輯
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已新增一筆${isExpense ? '支出' : '收入'}：${titleController.text}')));
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black),
+                  child: const Text('儲存紀錄', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,11 +238,14 @@ class PettyCashPage extends StatelessWidget {
           const SizedBox(height: 80),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'petty_cash_fab_tag', // 給予獨立的 heroTag 避免衝突
-        onPressed: () {},
-        backgroundColor: const Color(0xFFE5BA73), // 琥珀金
-        child: const Icon(Icons.add, color: Colors.black),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80.0), // 抬高按鈕，避免被底部的導航列(毛玻璃)遮擋而無法點擊
+        child: FloatingActionButton(
+          heroTag: 'petty_cash_fab_tag', // 給予獨立的 heroTag 避免衝突
+          onPressed: () => _showAddTransactionDialog(context),
+          backgroundColor: const Color(0xFFE5BA73), // 琥珀金
+          child: const Icon(Icons.add, color: Colors.black),
+        ),
       ),
     );
   }

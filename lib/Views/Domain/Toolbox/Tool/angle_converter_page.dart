@@ -118,13 +118,13 @@ class _AngleConverterPageState extends State<AngleConverterPage> {
                 children: [
                   const Text('快速帶入', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
                     children: [
-                      _buildShortcutBtn('90° = ? rad', 'deg', 90),
-                      _buildShortcutBtn('180° = ? grad', 'deg', 180),
-                      _buildShortcutBtn('π rad = ? °', 'rad', math.pi),
+                      Expanded(child: _buildShortcutBtn('90°\n= ? rad', 'deg', 90)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _buildShortcutBtn('180°\n= ? grad', 'deg', 180)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _buildShortcutBtn('π rad\n= ? °', 'rad', math.pi)),
                     ],
                   ),
                 ],
@@ -225,8 +225,13 @@ class _AngleConverterPageState extends State<AngleConverterPage> {
   Widget _buildShortcutBtn(String label, String unit, double value) {
     return OutlinedButton(
       onPressed: () => _setShortcut(unit, value),
-      style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.white.withOpacity(0.1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), foregroundColor: const Color(0xFFE5BA73), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-      child: Text(label, style: const TextStyle(fontSize: 13)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: Colors.white.withOpacity(0.1)), 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), 
+        foregroundColor: const Color(0xFFE5BA73), 
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      ),
+      child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, height: 1.3)),
     );
   }
 

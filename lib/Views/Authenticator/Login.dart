@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Component/NavBar.dart'; // 修正為正確的導航框架路徑
 import '../../Services/Authenticator/api_service.dart';
@@ -49,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
           }
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => MainScreen(userData: userData)),
+            CupertinoPageRoute(builder: (context) => MainScreen(userData: userData)),
           );
           return; // 跳轉後結束執行
         }
@@ -132,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
               SnackBar(content: Text('登入成功！歡迎 ${fullUserData['name'] ?? userData['name']}')));
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => MainScreen(userData: fullUserData)),
+            CupertinoPageRoute(builder: (context) => MainScreen(userData: fullUserData)),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -241,6 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF121824), // 深底色
+      resizeToAvoidBottomInset: false, // 避免鍵盤彈出時壓縮畫面，使底部圖示保持固定
       body: Stack(
         children: [
           // 金色微光渲染層
@@ -273,135 +275,143 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter, // 讓整體內容靠上對齊
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // 頂部 Logo (無框、放大)
-                      const Image(
-                        image: ExactAssetImage('assets/images/ez_icon.png', scale: 2.0),
-                        fit: BoxFit.cover,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '易派工',
-                        style: TextStyle(
-                          fontSize: 24, // 字體變小
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Comic Sans MS', // 漫畫風字體
-                          color: Color(0xFFFFFFFF),
-                          letterSpacing: 4,
-                        ),
-                      ),
-                      const SizedBox(height: 30), // 拉開與表單的距離
-                      
-                      // 移除外層卡片，讓元件直接置於背景之上
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildTextField(
-                              phoneController, 
-                              '帳號', 
-                              icon: Icons.person_outline, // 線性細線條圖標
-                              isRequired: true,
-                              focusNode: _phoneFocusNode,
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.topCenter, // 讓整體內容靠上對齊
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 頂部 Logo (無框、放大)
+                          const Image(
+                            image: ExactAssetImage('assets/images/ez_icon.png', scale: 2.0),
+                            fit: BoxFit.cover,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            '易派工',
+                            style: TextStyle(
+                              fontSize: 24, // 字體變小
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Comic Sans MS', // 漫畫風字體
+                              color: Color(0xFFFFFFFF),
+                              letterSpacing: 4,
                             ),
-                            _buildTextField(
-                              passwordController, 
-                              '密碼', 
-                              icon: Icons.lock_outline, // 線性細線條圖標
-                              obscureText: !_isPasswordVisible, 
-                              isRequired: true,
-                              focusNode: _passwordFocusNode,
-                              suffixIcon: IconButton(
-                                icon: Icon(_isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: const Color(0xFF8A94A6)),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
-                              ),
-                            ),
-                            // 記住我
-                            Row(
+                          ),
+                          const SizedBox(height: 30), // 拉開與表單的距離
+                          
+                          // 移除外層卡片，讓元件直接置於背景之上
+                          Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Theme(
-                                  data: Theme.of(context).copyWith(
-                                    unselectedWidgetColor: const Color(0xFF8A94A6),
-                                  ),
-                                  child: Checkbox(
-                                    value: _rememberMe,
-                                    activeColor: const Color(0xFFE5BA73), // 主要金色
-                                    checkColor: Colors.black, // 黑字
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                    onChanged: (value) {
+                                _buildTextField(
+                                  phoneController, 
+                                  '帳號', 
+                                  icon: Icons.person_outline, // 線性細線條圖標
+                                  isRequired: true,
+                                  focusNode: _phoneFocusNode,
+                                ),
+                                _buildTextField(
+                                  passwordController, 
+                                  '密碼', 
+                                  icon: Icons.lock_outline, // 線性細線條圖標
+                                  obscureText: !_isPasswordVisible, 
+                                  isRequired: true,
+                                  focusNode: _passwordFocusNode,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(_isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: const Color(0xFF8A94A6)),
+                                    onPressed: () {
                                       setState(() {
-                                        _rememberMe = value ?? false;
+                                        _isPasswordVisible = !_isPasswordVisible;
                                       });
                                     },
                                   ),
                                 ),
-                                const Text('記住我', style: TextStyle(color: Color(0xFF8A94A6))),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            // 登入按鈕 (滿版)
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)], // 金色漸層 (Primary)
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
+                                // 記住我
+                                Row(
+                                  children: [
+                                    Theme(
+                                      data: Theme.of(context).copyWith(
+                                        unselectedWidgetColor: const Color(0xFF8A94A6),
+                                      ),
+                                      child: Checkbox(
+                                        value: _rememberMe,
+                                        activeColor: const Color(0xFFE5BA73), // 主要金色
+                                        checkColor: Colors.black, // 黑字
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _rememberMe = value ?? false;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const Text('記住我', style: TextStyle(color: Color(0xFF8A94A6))),
+                                  ],
                                 ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
-                                ],
-                              ),
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _submit,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent, // 背景透明以顯示漸層
-                                  shadowColor: Colors.transparent, // 避免與外部 BoxShadow 衝突
-                                  foregroundColor: Colors.black, // 黑字
-                                  padding: const EdgeInsets.symmetric(vertical: 18), 
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                                    : const Text('登入', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
-                              ),
-                            ),
-                            const SizedBox(height: 30),
-                            // 註冊文字連結
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text('還沒有帳號？', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 15)),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen()));
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                const SizedBox(height: 10),
+                                // 登入按鈕 (滿版)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)], // 金色漸層 (Primary)
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(color: const Color(0xFFE5BA73).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+                                    ],
                                   ),
-                                  child: const Text('立即註冊', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 15, fontWeight: FontWeight.bold)),
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading ? null : _submit,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent, // 背景透明以顯示漸層
+                                      shadowColor: Colors.transparent, // 避免與外部 BoxShadow 衝突
+                                      foregroundColor: Colors.black, // 黑字
+                                      padding: const EdgeInsets.symmetric(vertical: 18), 
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    child: _isLoading
+                                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                                        : const Text('登入', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                                  ),
                                 ),
+                                const SizedBox(height: 30),
+                                // 註冊文字連結
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text('還沒有帳號？', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 15)),
+                                    TextButton(
+                                      onPressed: () {
+                                    Navigator.push(context, CupertinoPageRoute(builder: (context) => const RegisterScreen()));
+                                      },
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text('立即註冊', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 15, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 100), // 新增底部留白，避免內容被最下方的社群圖示遮擋
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
