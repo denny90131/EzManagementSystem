@@ -24,8 +24,13 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   final TextEditingController contractorPhoneController = TextEditingController();
   final TextEditingController budgetController = TextEditingController();
   final TextEditingController orderDateController = TextEditingController();
+  final TextEditingController durationController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
+  final TextEditingController projectController = TextEditingController(); // 新增：建案
+  final TextEditingController accessControlController = TextEditingController(); // 新增：門禁
+  final TextEditingController sellingPriceController = TextEditingController(); // 新增：售價
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
+  String? _selectedConstructionItem; // 新增：施工項目
 
   @override
   void dispose() {
@@ -37,7 +42,11 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     contractorPhoneController.dispose();
     budgetController.dispose();
     orderDateController.dispose();
+    durationController.dispose();
     notesController.dispose();
+    projectController.dispose();
+    accessControlController.dispose();
+    sellingPriceController.dispose();
     super.dispose();
   }
 
@@ -61,6 +70,28 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     );
   }
 
+  // 新增：下拉式選單輔助元件
+  Widget _buildDialogDropdownField(String label, IconData icon, List<String> items, String? value, ValueChanged<String?> onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      dropdownColor: const Color(0xFF1A2232),
+      onChanged: onChanged,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: const Color(0xFF8A94A6)),
+        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
+        filled: true,
+        fillColor: const Color(0xFF121824),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+      ),
+      items: items.map((String item) {
+        return DropdownMenuItem<String>(value: item, child: Text(item));
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -80,13 +111,25 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                     const SizedBox(height: 12),
                     _buildDialogTextField(ownerPhoneController, '業主手機號碼', Icons.phone_outlined, keyboardType: TextInputType.phone),
                     const SizedBox(height: 12),
+                    _buildDialogTextField(accessControlController, '門禁', Icons.vpn_key_outlined),
+                    const SizedBox(height: 12),
                     _buildDialogTextField(siteNameController, '工地名稱', Icons.work_outline),
                     const SizedBox(height: 12),
                     _buildDialogTextField(siteAddressController, '工地地址', Icons.location_on_outlined),
                     const SizedBox(height: 12),
+                    _buildDialogTextField(projectController, '建案', Icons.domain_outlined),
+                    const SizedBox(height: 12),
                     _buildDialogTextField(contractorNameController, '發包人名稱', Icons.handshake_outlined),
                     const SizedBox(height: 12),
                     _buildDialogTextField(contractorPhoneController, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone),
+                    const SizedBox(height: 12),
+                    _buildDialogDropdownField(
+                      '施工項目', 
+                      Icons.category_outlined, 
+                      ['水電工程', '木作工程', '泥作工程', '油漆工程', '空調工程', '清潔工程', '其他'], 
+                      _selectedConstructionItem, 
+                      (val) => setState(() => _selectedConstructionItem = val)
+                    ),
                     const SizedBox(height: 12),
                     _buildDialogTextField(budgetController, '預算金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
@@ -103,6 +146,10 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                         });
                       }
                     }),
+                    const SizedBox(height: 12),
+                    _buildDialogTextField(durationController, '預計工期 (天)', Icons.timer_outlined, keyboardType: TextInputType.number),
+                    const SizedBox(height: 12),
+                    _buildDialogTextField(sellingPriceController, '售價', Icons.sell_outlined, keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
                     _buildDialogTextField(notesController, '備註', Icons.note_alt_outlined, maxLines: 3),
                   ],

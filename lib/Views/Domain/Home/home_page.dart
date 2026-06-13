@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../API/Authenticator_api.dart';
+import '../../../API/Subscribe_api.dart'; // 引入訂閱 API
 import '../../../API/Team_api.dart'; // 引入團隊 API
 import 'Setting/settings_sheet.dart'; // 引入獨立的底部選單元件
 import 'ConstructionSite/add_construction.dart'; // 引入新增工地的獨立對話框
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Map<String, dynamic>? _fullUserData;
   List<Map<String, dynamic>> _teamMembers = []; // 新增：團隊成員名單
   bool _isLoading = true; // 新增：控制載入中動畫狀態
+  bool _isSubscribed = false; // 新增：追蹤團隊是否已訂閱
 
   late AnimationController _animationController;
   late Animation<double> _animation;
@@ -79,8 +81,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final activeTeamId = prefs.getString('active_team_uuid');
       if (activeTeamId != null && activeTeamId.isNotEmpty) {
         final members = await TeamApiService.getMemberTeam(activeTeamId);
+        
+        // 查詢當前團隊的訂閱狀態
+        final activePlan = await SubscriptionApiService.getActivePlan(activeTeamId);
+        final isSub = activePlan != null && activePlan.remainingDays > 0;
+        
         if (mounted) {
           setState(() {
+            _isSubscribed = isSub; // 記錄訂閱狀態
             if (members != null) {
               _teamMembers = members.map<Map<String, dynamic>>((m) {
                 final profile = m['profile'] ?? {};
@@ -108,6 +116,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         if (mounted) {
           setState(() {
             _teamMembers = [];
+            _isSubscribed = false;
             _updateAttendanceAnimation();
           });
         }
@@ -415,34 +424,36 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
                 Row(
                   children: [
-                    Tooltip(
-                      message: '新增工地',
-                      child: ElevatedButton(
-                        onPressed: () => AddConstructionDialog.show(context), // 呼叫獨立的靜態方法
+                    if (_isSubscribed) ...[
+                      Tooltip(
+                        message: '新增工地',
+                        child: ElevatedButton(
+                          onPressed: () => AddConstructionDialog.show(context), // 呼叫獨立的靜態方法
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A2232), // 深色底搭配金邊
+                            side: const BorderSide(color: Color(0xFFE5BA73)),
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(36, 36),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: const Icon(Icons.add, size: 20, color: Color(0xFFE5BA73)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => DispatchDialog.show(context), // 呼叫獨立的靜態方法
+                        icon: const Icon(Icons.assignment_ind_outlined, size: 16, color: Colors.black),
+                        label: const Text('派工', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A2232), // 深色底搭配金邊
-                          side: const BorderSide(color: Color(0xFFE5BA73)),
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(36, 36),
+                          backgroundColor: const Color(0xFFE5BA73), // 金色
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          minimumSize: const Size(0, 36),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 0,
                         ),
-                        child: const Icon(Icons.add, size: 20, color: Color(0xFFE5BA73)),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => DispatchDialog.show(context), // 呼叫獨立的靜態方法
-                      icon: const Icon(Icons.assignment_ind_outlined, size: 16, color: Colors.black),
-                      label: const Text('派工', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE5BA73), // 金色
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        minimumSize: const Size(0, 36),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                    ),
+                    ],
                   ],
                 )
               ],
@@ -642,17 +653,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             ],
                           ),
                           const SizedBox(height: 16),
-                          _buildCaseInfoRow(Icons.calendar_today, '訂單日期：2023-11-20', const Color(0xFFE65100)),
+                          _buildCaseInfoRow(Icons.calendar_today, '派工日期：2023-11-20', const Color(0xFFE65100)),
                           const SizedBox(height: 10),
                           _buildCaseInfoRow(Icons.location_on, '台北市中山區南京東路1段1號', Colors.red.shade400),
                           const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.person_outline, '業主：王大明 / 0912-345-678', Colors.teal.shade400),
-                          const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.handshake_outlined, '發包：李老闆 / 0987-654-321', Colors.orange.shade400),
-                          const SizedBox(height: 10),
                           _buildCaseInfoRow(Icons.people, '派工：測試員工1, 測試員工2', Colors.blue.shade400),
                           const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.note_alt_outlined, '備註：例行性空調保養，請攜帶A字梯', Colors.green.shade400),
+                          _buildCaseInfoRow(Icons.note_alt_outlined, '派工備註：例行性空調保養，請攜帶A字梯', Colors.green.shade400),
                         ],
                       ),
                     ),

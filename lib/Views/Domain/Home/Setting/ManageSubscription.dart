@@ -20,12 +20,23 @@ class ManageSubscriptionDialog extends StatefulWidget {
     required String teamName,
     required VoidCallback onSubscriptionSuccess,
   }) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => ManageSubscriptionDialog(
-        teamUUID: teamUUID,
-        teamName: teamName,
-        onSubscriptionSuccess: onSubscriptionSuccess,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent, // 設定透明背景，讓內部自己長成圓角視窗
+      elevation: 0, // 移除預設陰影
+      builder: (ctx) => Padding(
+        // 加入左右與底部的留白，讓它看起來像一個懸浮的視窗 (Dialog)，並能避開鍵盤
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24, // 距離底部 24px，且會隨鍵盤浮動
+          left: 20, // 距離左右 20px
+          right: 20,
+        ),
+        child: ManageSubscriptionDialog(
+          teamUUID: teamUUID,
+          teamName: teamName,
+          onSubscriptionSuccess: onSubscriptionSuccess,
+        ),
       ),
     );
   }
@@ -57,24 +68,36 @@ class _ManageSubscriptionDialogState extends State<ManageSubscriptionDialog> {
       {'value': '1year', 'title': '1年方案', 'sub': '年度尊榮，最划算投資'},
     ];
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+    return SafeArea(
       child: Container(
+        margin: const EdgeInsets.only(top: 24.0), // 距離上方留白
         decoration: BoxDecoration(
           color: const Color(0xFF1E2532),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(24), // 四周皆為圓角，看起來像獨立的對話框
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 4),
           ],
         ),
         child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(), // 保留此屬性讓下滑手勢能傳遞並觸發關閉
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0, top: 16.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // 頂部拖曳指示條，提示使用者可以往下拉關閉
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
                 // 標題與關閉按鈕
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

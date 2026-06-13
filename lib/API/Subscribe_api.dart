@@ -62,6 +62,9 @@ class ActivePlanModel {
       if (diff.inDays > 0) actualRemainingDays = diff.inDays.toDouble();
       else if (diff.inSeconds > 0) actualRemainingDays = 1.0; // 不足一天但未過期，至少顯示 1 天
     }
+    else if (actualRemainingDays > 0 && actualRemainingDays < 1) {
+      actualRemainingDays = 1.0; // 若後端直接回傳不足 1 天的小數，也保底顯示 1 天
+    }
 
     return ActivePlanModel(
       licenseKey: (json['LicenseKey'] ?? json['licenseKey'])?.toString() ?? '',

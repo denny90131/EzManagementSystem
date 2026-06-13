@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../API/Invite_api.dart';
 import '../../../../API/Team_api.dart';
+import '../../../../API/Subscribe_api.dart'; // 引入訂閱狀態服務
 
 class ManageMyTeamPage extends StatefulWidget {
   final String teamUUID;
@@ -25,6 +26,7 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _members = [];
   String _currentUserId = '';
+  bool _isSubscribed = false; // 新增訂閱狀態記錄
 
   @override
   void initState() {
@@ -39,6 +41,10 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
     _currentUserId = prefs.getString('user_id') ?? '';
 
     final rawMembers = await TeamApiService.getMemberTeam(widget.teamUUID);
+    final activePlan = await SubscriptionApiService.getActivePlan(widget.teamUUID);
+    
+    // 判斷團隊是否正在訂閱期間內
+    final isSub = activePlan != null && activePlan.remainingDays > 0;
     
     if (rawMembers != null) {
       final parsedMembers = rawMembers.map<Map<String, dynamic>>((m) {
@@ -73,6 +79,7 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
       if (mounted) {
         setState(() {
           _members = parsedMembers;
+          _isSubscribed = isSub; // 儲存訂閱狀態
           _isLoading = false;
         });
       }
@@ -185,9 +192,9 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                             dropdownColor: const Color(0xFF1E2532),
                             icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFE5BA73)),
                             items: const [
-                              DropdownMenuItem(value: 1, child: Text('權限等級 1 (一般)', style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(value: 2, child: Text('權限等級 2 (管理)', style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(value: 3, child: Text('權限等級 3 (最高)', style: TextStyle(color: Colors.white))),
+                              DropdownMenuItem(value: 1, child: Text('工班師傅', style: TextStyle(color: Colors.white))),
+                              DropdownMenuItem(value: 2, child: Text('案場經理', style: TextStyle(color: Colors.white))),
+                              DropdownMenuItem(value: 3, child: Text('公司核心', style: TextStyle(color: Colors.white))),
                             ],
                             onChanged: (val) {
                               if (val != null) setDialogState(() => currentPermission = val);
@@ -362,6 +369,14 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
     return dateStr;
   }
 
+  String _getPermissionName(dynamic code) {
+    if (code == 1 || code == '1') return '工班師傅';
+    if (code == 2 || code == '2') return '案場經理';
+    if (code == 3 || code == '3') return '公司核心';
+    if (code == 999 || code == '999') return '團隊創辦者';
+    return '未知等級 ($code)';
+  }
+
   // 顯示員工詳細資訊的彈出視窗
   void _showMemberDetailsDialog(Map<String, dynamic> member) {
     final bool isCurrentUserCreator = _isCurrentUserCreator;
@@ -373,20 +388,34 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
     // 創辦者可看所有人薪資權限，普通人只能看自己的，且所有人都看不到創辦者的薪資權限
     final bool canSeeSalaryAndPermission = (isCurrentUserCreator || isSelf) && !isTargetCreator;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E2532),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) {
-        return Dialog(
-          backgroundColor: const Color(0xFF1E2532),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 16.0, bottom: 24.0),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 頂部拖曳指示條，提示使用者可以往下拉關閉
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
                   // 頂部頭像與名稱
                   Row(
                     children: [
@@ -415,7 +444,7 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                   _buildDetailRow(Icons.business_outlined, '公司名稱', member['company'] ?? ''),
                   _buildDetailRow(Icons.work_outline, '擔任職務', member['position'] ?? ''),
                   if (canSeeSalaryAndPermission)
-                    _buildDetailRow(Icons.shield_outlined, '權限等級', '等級 ${member['permetionCode'] ?? 'N/A'}'),
+                    _buildDetailRow(Icons.shield_outlined, '權限職位', _getPermissionName(member['permetionCode'])),
                   _buildDetailRow(Icons.wc_outlined, '性別', member['gender'] ?? ''),
                   _buildDetailRow(Icons.cake_outlined, '生日', _formatDate(member['birth'])),
                   _buildDetailRow(Icons.bloodtype_outlined, '血型', member['blood'] ?? ''),
@@ -508,8 +537,9 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E2532),
         iconTheme: const IconThemeData(color: Colors.white),
+        centerTitle: true,
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Text('管理我的團隊', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             Text(widget.teamName, style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 12)),
@@ -523,24 +553,35 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: InkWell(
-                onTap: _handleGenerateInviteCode,
+                onTap: _isSubscribed ? _handleGenerateInviteCode : () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('團隊尚未訂閱，無法產生邀請碼')));
+                },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)]),
+                    gradient: _isSubscribed 
+                        ? const LinearGradient(colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)])
+                        : null,
+                    color: _isSubscribed ? null : Colors.white12, // 未訂閱時改用半透明灰底
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(width: 8),
-                      Text('產生團隊邀請碼', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w900)),
+                      if (!_isSubscribed) ...[
+                        const Icon(Icons.lock_outline, color: Colors.white54, size: 20),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(_isSubscribed ? '產生團隊邀請碼' : '團隊尚未訂閱，無法產生邀請碼', 
+                          style: TextStyle(color: _isSubscribed ? Colors.black : Colors.white54, fontSize: 16, fontWeight: FontWeight.w900)),
                     ],
                   ),
                 ),
               ),
-            ),
+            )
+          else
+            const SizedBox(height: 16),
           
           // 成員列表
           Expanded(
@@ -637,7 +678,7 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                                 if (isTargetCreator)
                                   const Text('👑 團隊創辦者', style: TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold))
                                 else if (canSeeSalaryAndPermission)
-                                  Text('權限: ${member['permetionCode']} | 薪資: \$${member['salary']}', style: const TextStyle(color: Color(0xFF8A94A6)))
+                                  Text('權限: ${_getPermissionName(member['permetionCode'])} | 薪資: \$${member['salary']}', style: const TextStyle(color: Color(0xFF8A94A6)))
                                 else
                                   const Text('團員', style: TextStyle(color: Color(0xFF8A94A6))),
                                 

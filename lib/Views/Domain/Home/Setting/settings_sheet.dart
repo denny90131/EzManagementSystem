@@ -362,7 +362,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                                 gradient: const LinearGradient(colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)]),
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: Text('剩餘 ${_activePlan!.remainingDays.toInt()} 天', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
+                              child: Text('剩餘 ${_activePlan!.remainingDays.ceil()} 天', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
                             )
                           else
                             Container(

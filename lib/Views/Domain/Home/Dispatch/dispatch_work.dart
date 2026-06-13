@@ -24,6 +24,10 @@ class _DispatchDialogState extends State<DispatchDialog> {
   final TextEditingController dateController = TextEditingController(
     text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
   );
+  final TextEditingController startTimeController = TextEditingController(); // 新增：開始時間
+  final TextEditingController endTimeController = TextEditingController();   // 新增：結束時間
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
   late Future<List<String>> teamMembersFuture;
 
@@ -56,6 +60,8 @@ class _DispatchDialogState extends State<DispatchDialog> {
   void dispose() {
     notesController.dispose();
     dateController.dispose();
+    startTimeController.dispose();
+    endTimeController.dispose();
     super.dispose();
   }
 
@@ -125,6 +131,64 @@ class _DispatchDialogState extends State<DispatchDialog> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
                       ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('派工時間區間', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: startTimeController,
+                            readOnly: true,
+                            onTap: () async {
+                              final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
+                              if (picked != null) {
+                                setState(() {
+                                  _startTime = picked;
+                                  startTimeController.text = "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+                                });
+                              }
+                            },
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: '開始時間',
+                              hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
+                              prefixIcon: const Icon(Icons.access_time, color: Color(0xFF8A94A6)),
+                              filled: true,
+                              fillColor: const Color(0xFF121824),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+                            ),
+                          ),
+                        ),
+                        const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Text('至', style: TextStyle(color: Color(0xFF8A94A6)))),
+                        Expanded(
+                          child: TextField(
+                            controller: endTimeController,
+                            readOnly: true,
+                            onTap: () async {
+                              final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 17, minute: 0));
+                              if (picked != null) {
+                                setState(() {
+                                  _endTime = picked;
+                                  endTimeController.text = "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+                                });
+                              }
+                            },
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: '結束時間',
+                              hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
+                              prefixIcon: const Icon(Icons.access_time_filled, color: Color(0xFF8A94A6)),
+                              filled: true,
+                              fillColor: const Color(0xFF121824),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
                     const Text('選擇派工人員 (可多選)', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
@@ -215,13 +279,17 @@ class _DispatchDialogState extends State<DispatchDialog> {
               setState(() => _errorMessage = '請選擇派工日期');
               return;
             }
+            if (startTimeController.text.isEmpty || endTimeController.text.isEmpty) {
+              setState(() => _errorMessage = '請選擇完整的派工時間區間');
+              return;
+            }
             if (selectedEmployees.isEmpty) {
               setState(() => _errorMessage = '請至少選擇一位員工');
               return;
             }
             setState(() => _errorMessage = null); // 清除錯誤提示
             Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功派工 ${selectedEmployees.length} 人至 $selectedSite\n日期：${dateController.text}')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功派工 ${selectedEmployees.length} 人至 $selectedSite\n日期：${dateController.text} ${startTimeController.text} - ${endTimeController.text}')));
           },
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black),
           child: const Text('確認派工', style: TextStyle(fontWeight: FontWeight.bold)),
