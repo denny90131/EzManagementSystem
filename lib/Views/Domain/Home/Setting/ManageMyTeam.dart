@@ -1,15 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../Services/Invite/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../API/Invite_api.dart';
+import '../../../../API/Team_api.dart';
 
 class ManageMyTeamPage extends StatefulWidget {
   final String teamUUID;
   final String teamName;
+  final bool isOwner;
 
   const ManageMyTeamPage({
     super.key,
     required this.teamUUID,
     required this.teamName,
+    this.isOwner = false,
   });
 
   @override
@@ -19,6 +24,7 @@ class ManageMyTeamPage extends StatefulWidget {
 class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _members = [];
+  String _currentUserId = '';
 
   @override
   void initState() {
@@ -29,39 +35,53 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
   Future<void> _fetchMembers() async {
     setState(() => _isLoading = true);
     
-    // TODO: 先不要串 API，用假資料代替
-    await Future.delayed(const Duration(milliseconds: 800));
-    final members = [
-      {
-        "memberUUID": "user-001", "name": "測試員工A", "permetionCode": 1, "salary": 2000, "remark": "資深木工師傅，自備貨車",
-        "picture": null, // Base64 string or null
-        "phoneNumber": "0912-345-678",
-        "position": "木工",
-        "iceName": "王美麗",
-        "icePhoneNumber": "0987-654-321",
-      },
-      {
-        "memberUUID": "user-002", "name": "測試員工B", "permetionCode": 2, "salary": 2500, "remark": "",
-        "picture": null,
-        "phoneNumber": "0922-333-444",
-        "position": "油漆工",
-        "iceName": "陳大明",
-        "icePhoneNumber": "0977-654-321",
-      },
-      {
-        "memberUUID": "user-003", "name": "測試員工C", "permetionCode": 3, "salary": 3200, "remark": "新人，需多留意安全",
-        "picture": null,
-        "phoneNumber": "0933-555-666",
-        "position": "學徒",
-        "iceName": "林小花",
-        "icePhoneNumber": "0966-123-456",
-      },
-    ];
+    final prefs = await SharedPreferences.getInstance();
+    _currentUserId = prefs.getString('user_id') ?? '';
+
+    final rawMembers = await TeamApiService.getMemberTeam(widget.teamUUID);
     
-    setState(() {
-      _members = members;
-      _isLoading = false;
-    });
+    if (rawMembers != null) {
+      final parsedMembers = rawMembers.map<Map<String, dynamic>>((m) {
+        final teamInfo = m['teamInfo'] ?? m['TeamInfo'] ?? {};
+        final profile = m['profile'] ?? m['Profile'] ?? {};
+        return {
+          "memberUUID": teamInfo['memberUUID'] ?? teamInfo['MemberUUID'] ?? profile['index'] ?? profile['Index'] ?? '',
+          "name": profile['name'] ?? profile['Name'] ?? '未命名',
+          "permetionCode": teamInfo['permissionCode'] ?? teamInfo['PermissionCode'] ?? 1,
+          "salary": teamInfo['salary'] ?? teamInfo['Salary'] ?? 2000,
+          "isCreator": teamInfo['isCreator'] ?? teamInfo['IsCreator'] ?? false,
+          "role": teamInfo['role'] ?? teamInfo['Role'] ?? 'Member',
+          // 分開儲存團隊備註與個人備註
+          "remark": teamInfo['note'] ?? teamInfo['Note'] ?? '', // 團隊專屬備註
+          "personalNote": profile['note'] ?? profile['Note'] ?? '', // 個人基本資料備註
+          "picture": profile['picture'] ?? profile['Picture'],
+          "phoneNumber": profile['phoneNumber'] ?? profile['PhoneNumber'] ?? '',
+          "position": profile['position'] ?? profile['Position'] ?? '',
+          "iceName": profile['iceName'] ?? profile['ICEName'] ?? '',
+          "icePhoneNumber": profile['icePhoneNumber'] ?? profile['ICEPhoneNumber'] ?? '',
+          "company": profile['company'] ?? profile['Company'] ?? '',
+          "email": profile['email'] ?? profile['Email'] ?? '',
+          "address": profile['address'] ?? profile['Address'] ?? '',
+          "birth": profile['birth'] ?? profile['Birth'] ?? '',
+          "blood": profile['blood'] ?? profile['Blood'] ?? '',
+          "geneticHistory": profile['geneticHistory'] ?? profile['GeneticHistory'] ?? '',
+          "gender": profile['gender'] ?? profile['Gender'] ?? '',
+          "iceRelation": profile['iceRelation'] ?? profile['ICERelation'] ?? '',
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _members = parsedMembers;
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法載入團隊成員')));
+      }
+    }
   }
 
   Future<void> _handleGenerateInviteCode() async {
@@ -194,7 +214,7 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                       const SizedBox(height: 16),
                       
                       // 備註設定
-                      const Text('員工備註', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold)),
+                      const Text('團隊備註', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       TextField(
                         controller: remarkController,
@@ -223,11 +243,22 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                           int newSalary = int.tryParse(salaryController.text) ?? 2000;
                           String newRemark = remarkController.text.trim();
                       
-                      // TODO: 先不要串 API，用假資料代替
-                      await Future.delayed(const Duration(milliseconds: 500));
-                      bool success = true; // 模擬成功
+                          // 呼叫 API 編輯成員
+                          final prefs = await SharedPreferences.getInstance();
+                          final executorId = prefs.getString('user_id') ?? '';
                           
-                          if (success && mounted) {
+                          final (isSuccess, message) = await TeamApiService.editMemberFromTeam(
+                            teamUuid: widget.teamUUID,
+                            executorMemberUuid: executorId,
+                            targetMemberUuid: member['memberUUID'],
+                            permissionCode: currentPermission,
+                            salary: newSalary,
+                            note: newRemark,
+                          );
+                          
+                          if (!mounted) return;
+                          
+                          if (isSuccess) {
                             // 更新本地狀態以馬上反映變更 (不重新抓取 mock 假資料以免資料被覆蓋回去)
                             setState(() {
                               int index = _members.indexWhere((m) => m['memberUUID'] == member['memberUUID']);
@@ -241,7 +272,9 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                               }
                             });
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('成員設定已更新')));
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
                           }
                         },
                         child: const Text('儲存設定', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -267,14 +300,29 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                                 ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                  onPressed: () {
-                                    // 執行刪除：將該成員從本地 _members 陣列中移除
-                                    setState(() {
-                                      _members.removeWhere((m) => m['memberUUID'] == member['memberUUID']);
-                                    });
-                                    Navigator.pop(confirmCtx); // 關閉確認視窗
-                                    Navigator.pop(ctx); // 關閉編輯視窗
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已將 ${member['name']} 移出團隊')));
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final executorId = prefs.getString('user_id') ?? '';
+
+                                    final (isSuccess, message) = await TeamApiService.deleteMemberFromTeam(
+                                      teamUuid: widget.teamUUID,
+                                      executorMemberUuid: executorId,
+                                      targetMemberUuid: member['memberUUID'],
+                                    );
+
+                                    if (!mounted) return;
+
+                                    if (isSuccess) {
+                                      setState(() {
+                                        _members.removeWhere((m) => m['memberUUID'] == member['memberUUID']);
+                                      });
+                                      Navigator.pop(confirmCtx); // 關閉確認視窗
+                                      Navigator.pop(ctx); // 關閉編輯視窗
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                                    } else {
+                                      Navigator.pop(confirmCtx);
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                                    }
                                   },
                                   child: const Text('確定移除', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
@@ -295,8 +343,36 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
     );
   }
 
+  // 檢查當前使用者是否為創辦者
+  bool get _isCurrentUserCreator {
+    if (widget.isOwner) return true;
+    try {
+      final currentUser = _members.firstWhere((m) => m['memberUUID'] == _currentUserId);
+      return currentUser['isCreator'] == true || currentUser['permetionCode'] == 999;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty || dateStr.startsWith('1900')) return '';
+    if (dateStr.contains('T')) {
+      return dateStr.split('T')[0];
+    }
+    return dateStr;
+  }
+
   // 顯示員工詳細資訊的彈出視窗
   void _showMemberDetailsDialog(Map<String, dynamic> member) {
+    final bool isCurrentUserCreator = _isCurrentUserCreator;
+    final bool isTargetCreator = member['isCreator'] == true || member['permetionCode'] == 999;
+    final bool isSelf = member['memberUUID'] == _currentUserId;
+    
+    // 創辦者能編輯他人(非創辦者)
+    final bool canEdit = isCurrentUserCreator && !isTargetCreator;
+    // 創辦者可看所有人薪資權限，普通人只能看自己的，且所有人都看不到創辦者的薪資權限
+    final bool canSeeSalaryAndPermission = (isCurrentUserCreator || isSelf) && !isTargetCreator;
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -317,8 +393,10 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                       CircleAvatar(
                         radius: 28,
                         backgroundColor: const Color(0xFF121824),
-                        // TODO: 之後可串接真實圖片 backgroundImage: member['picture'] != null ? MemoryImage(base64Decode(member['picture'])) : null,
-                        child: member['picture'] == null ? const Icon(Icons.person, color: Color(0xFFE5BA73), size: 32) : null,
+                        backgroundImage: member['picture'] != null && member['picture'].toString().isNotEmpty
+                            ? MemoryImage(base64Decode(member['picture'].toString().split(',').last.replaceAll(RegExp(r'\s+'), '')))
+                            : null,
+                        child: (member['picture'] == null || member['picture'].toString().isEmpty) ? const Icon(Icons.person, color: Color(0xFFE5BA73), size: 32) : null,
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -333,23 +411,31 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
 
                   // 詳細資料
                   _buildDetailRow(Icons.phone_outlined, '手機號碼', member['phoneNumber'] ?? ''),
+                  _buildDetailRow(Icons.email_outlined, '聯絡信箱', member['email'] ?? ''),
+                  _buildDetailRow(Icons.business_outlined, '公司名稱', member['company'] ?? ''),
                   _buildDetailRow(Icons.work_outline, '擔任職務', member['position'] ?? ''),
-                  _buildDetailRow(Icons.shield_outlined, '權限等級', '等級 ${member['permetionCode'] ?? 'N/A'}'),
-                  _buildDetailRow(Icons.attach_money, '單日薪資', '\$${member['salary'] ?? 'N/A'}'),
+                  if (canSeeSalaryAndPermission)
+                    _buildDetailRow(Icons.shield_outlined, '權限等級', '等級 ${member['permetionCode'] ?? 'N/A'}'),
+                  _buildDetailRow(Icons.wc_outlined, '性別', member['gender'] ?? ''),
+                  _buildDetailRow(Icons.cake_outlined, '生日', _formatDate(member['birth'])),
+                  _buildDetailRow(Icons.bloodtype_outlined, '血型', member['blood'] ?? ''),
+                  _buildDetailRow(Icons.home_work_outlined, '聯絡地址', member['address'] ?? ''),
+                  _buildDetailRow(Icons.medical_services_outlined, '遺傳病史', member['geneticHistory'] ?? ''),
+                  if (canSeeSalaryAndPermission)
+                    _buildDetailRow(Icons.attach_money, '單日薪資', '\$${member['salary'] ?? 'N/A'}'),
                   
-                  if (member['remark'] != null && member['remark'].isNotEmpty) ...[
-                    const Divider(height: 24, color: Colors.white12),
-                    _buildDetailRow(Icons.note_alt_outlined, '備註', member['remark'] ?? ''),
-                  ],
+                  const Divider(height: 24, color: Colors.white12),
+                  _buildDetailRow(Icons.note_alt_outlined, '團隊備註', member['remark'] ?? ''),
+                  _buildDetailRow(Icons.assignment_ind_outlined, '個人備註', member['personalNote'] ?? ''),
                   
                   // 緊急聯絡人
-                  if ((member['iceName'] != null && member['iceName'].isNotEmpty) || (member['icePhoneNumber'] != null && member['icePhoneNumber'].isNotEmpty)) ...[
-                    const Divider(height: 24, color: Colors.white12),
-                    const Text('緊急聯絡人', style: TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold, fontSize: 15)),
-                    const SizedBox(height: 12),
-                    _buildDetailRow(Icons.person_outline, '聯絡人姓名', member['iceName'] ?? ''),
-                    _buildDetailRow(Icons.phone_in_talk_outlined, '聯絡人手機', member['icePhoneNumber'] ?? ''),
-                  ],
+                  const Divider(height: 24, color: Colors.white12),
+                  const Text('緊急聯絡人', style: TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 12),
+                  _buildDetailRow(Icons.person_outline, '聯絡人姓名', 
+                      '${member['iceName'] ?? ''} ${member['iceRelation'] != null && member['iceRelation'].toString().isNotEmpty ? '(${member['iceRelation']})' : ''}'.trim()
+                  ),
+                  _buildDetailRow(Icons.phone_in_talk_outlined, '聯絡人手機', member['icePhoneNumber'] ?? ''),
 
                   const SizedBox(height: 32),
 
@@ -362,22 +448,24 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                           child: const Text('關閉', style: TextStyle(color: Color(0xFF8A94A6))),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.edit_outlined, size: 16),
-                          label: const Text('編輯'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE5BA73),
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      if (canEdit) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: const Text('編輯'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE5BA73),
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx); // 關閉詳細資訊視窗
+                              _showEditMemberDialog(member); // 開啟編輯視窗
+                            },
                           ),
-                          onPressed: () {
-                            Navigator.pop(ctx); // 關閉詳細資訊視窗
-                            _showEditMemberDialog(member); // 開啟編輯視窗
-                          },
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
@@ -391,7 +479,7 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
 
   // 建立詳細資訊列的輔助元件
   Widget _buildDetailRow(IconData icon, String label, String value) {
-    if (value.isEmpty) return const SizedBox.shrink(); // 如果沒有值，則不顯示該行
+    final displayValue = value.trim().isEmpty ? '-' : value; // 若無值則顯示 '-'，保持版面一致
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
@@ -404,7 +492,7 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
             child: Text(label, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+            child: Text(displayValue, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
           ),
         ],
       ),
@@ -413,6 +501,8 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isCurrentUserCreator = _isCurrentUserCreator;
+
     return Scaffold(
       backgroundColor: const Color(0xFF121824),
       appBar: AppBar(
@@ -429,27 +519,28 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
       body: Column(
         children: [
           // 頂部功能區段
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: InkWell(
-              onTap: _handleGenerateInviteCode,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)]),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(width: 8),
-                    Text('產生團隊邀請碼', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w900)),
-                  ],
+          if (isCurrentUserCreator)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: InkWell(
+                onTap: _handleGenerateInviteCode,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)]),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(width: 8),
+                      Text('產生團隊邀請碼', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
           
           // 成員列表
           Expanded(
@@ -460,9 +551,14 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                     itemCount: _members.length,
                     itemBuilder: (context, index) {
                       final member = _members[index];
+                      final bool isTargetCreator = member['isCreator'] == true || member['permetionCode'] == 999;
+                      final bool isSelf = member['memberUUID'] == _currentUserId;
+                      final bool canEdit = isCurrentUserCreator && !isTargetCreator;
+                      final bool canSeeSalaryAndPermission = (isCurrentUserCreator || isSelf) && !isTargetCreator;
+
                       return Dismissible(
                         key: Key(member['memberUUID'].toString()),
-                        direction: DismissDirection.endToStart, // 僅允許由右向左滑動 (向左滑)
+                        direction: canEdit ? DismissDirection.endToStart : DismissDirection.none, // 無權限則禁用滑動刪除
                         background: Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           alignment: Alignment.centerRight,
@@ -488,7 +584,25 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                                 ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                  onPressed: () => Navigator.pop(confirmCtx, true), // 回傳 true 確認刪除
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final executorId = prefs.getString('user_id') ?? '';
+
+                                    final (isSuccess, message) = await TeamApiService.deleteMemberFromTeam(
+                                      teamUuid: widget.teamUUID,
+                                      executorMemberUuid: executorId,
+                                      targetMemberUuid: member['memberUUID'],
+                                    );
+
+                                    if (!mounted) return;
+
+                                    if (isSuccess) {
+                                      Navigator.pop(confirmCtx, true); // 回傳 true 讓外層 Dismissible 繼續刪除動畫
+                                    } else {
+                                      Navigator.pop(confirmCtx, false); // 回傳 false 取消刪除動畫
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                                    }
+                                  },
                                   child: const Text('確定移除', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
                               ],
@@ -500,28 +614,50 @@ class _ManageMyTeamPageState extends State<ManageMyTeamPage> {
                           setState(() {
                             _members.removeWhere((m) => m['memberUUID'] == member['memberUUID']);
                           });
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已將 ${member['name']} 移出團隊')));
+                          // SnackBar 在刪除 API 成功後處理即可
                         },
                         child: Card(
-                          color: const Color(0xFF1E2532),
+                          color: isTargetCreator ? const Color(0xFF2A2216) : const Color(0xFF1E2532),
                           margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: isTargetCreator ? const BorderSide(color: Color(0xFFE5BA73), width: 1.5) : BorderSide.none,
+                          ),
                           child: ListTile(
-                            leading: CircleAvatar(backgroundColor: const Color(0xFF121824), child: const Icon(Icons.person, color: Color(0xFFE5BA73))),
+                            leading: CircleAvatar(
+                              backgroundColor: const Color(0xFF121824),
+                              backgroundImage: member['picture'] != null && member['picture'].toString().isNotEmpty
+                                  ? MemoryImage(base64Decode(member['picture'].toString().split(',').last.replaceAll(RegExp(r'\s+'), '')))
+                                  : null,
+                              child: (member['picture'] == null || member['picture'].toString().isEmpty) ? const Icon(Icons.person, color: Color(0xFFE5BA73)) : null),
                             title: Text(member['name'] ?? '未命名', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('權限: ${member['permetionCode']} | 薪資: \$${member['salary']}', style: const TextStyle(color: Color(0xFF8A94A6))),
+                                if (isTargetCreator)
+                                  const Text('👑 團隊創辦者', style: TextStyle(color: Color(0xFFE5BA73), fontWeight: FontWeight.bold))
+                                else if (canSeeSalaryAndPermission)
+                                  Text('權限: ${member['permetionCode']} | 薪資: \$${member['salary']}', style: const TextStyle(color: Color(0xFF8A94A6)))
+                                else
+                                  const Text('團員', style: TextStyle(color: Color(0xFF8A94A6))),
+                                
+                                const SizedBox(height: 4),
+                                Text(
+                                  '手機: ${member['phoneNumber']?.toString().trim().isNotEmpty == true ? member['phoneNumber'] : '-'}',
+                                  style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 13),
+                                ),
+
                                 if (member['remark'] != null && member['remark'].toString().isNotEmpty)
-                                  Text('備註: ${member['remark']}', style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 12)),
+                                  Text('團隊備註: ${member['remark']}', style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 12)),
+                                if (member['personalNote'] != null && member['personalNote'].toString().isNotEmpty)
+                                  Text('個人備註: ${member['personalNote']}', style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
                               ],
                             ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.white54, size: 20),
-                              onPressed: () => _showEditMemberDialog(member),
-                              tooltip: '編輯成員',
-                            ),
+                            trailing: canEdit ? IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.white54, size: 20),
+                                onPressed: () => _showEditMemberDialog(member),
+                                tooltip: '編輯成員',
+                              ) : null,
                             onTap: () => _showMemberDetailsDialog(member),
                           ),
                         ),

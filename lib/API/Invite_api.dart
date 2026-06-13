@@ -1,37 +1,7 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'All_api.dart'; // 引入共用 API
 
 class ApiService {
-  // 可以將共同的 Domain 寫在這裡，方便統一修改
-  static const String baseUrl = 'http://192.168.0.99:5243/api';
-
-  /// 共用的 POST 請求方法，只要傳入後半段的網址 (endpoint) 即可
-  static Future<http.Response> _post(String endpoint, Map<String, dynamic> payload) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(payload),
-    );
-  }
-
-  /// 共用的 GET 請求方法，只要傳入後半段的網址 (endpoint) 即可
-  static Future<http.Response> _get(String endpoint) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.get(
-      url,
-      headers: {"Content-Type": "application/json"},
-    );
-  }
-
-  /// 共用的 DELETE 請求方法
-  static Future<http.Response> _delete(String endpoint) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.delete(
-      url,
-      headers: {"Content-Type": "application/json"},
-    );
-  }
 
   /// 7. 邀請使用者進入團隊 (透過 Email 或手機號碼)
   static Future<(bool isSuccess, String message)> inviteToTeam(String emailOrPhone, String teamUuid) async {
@@ -43,7 +13,7 @@ class ApiService {
 
       // 💡 請確認您的後端 Controller 路由。如果這個 API 是在 TeamController 下，則為 /Team/add-to-team
       // 若是放在現有的 IdentityController 底下，請將路徑改為 /Identity/add-to-team
-      final response = await _post('/Invite/add-to-team', payload);
+      final response = await BaseApi.post('/Invite/add-to-team', payload);
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -63,7 +33,7 @@ class ApiService {
         "TeamUUID": teamUuid
       };
 
-      final response = await _post('/Invite/generate-code', payload);
+      final response = await BaseApi.post('/Invite/generate-code', payload);
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -84,7 +54,7 @@ class ApiService {
         "MemberUUID": memberUuid
       };
 
-      final response = await _post('/Invite/join-by-code', payload);
+      final response = await BaseApi.post('/Invite/join-by-code', payload);
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200) {

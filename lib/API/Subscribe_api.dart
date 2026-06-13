@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'All_api.dart'; // 引入共用 API
 
 /// 模型：團隊資訊
 class TeamModel {
@@ -49,15 +49,29 @@ class ActivePlanModel {
   });
 
   factory ActivePlanModel.fromJson(Map<String, dynamic> json, String teamName, double remainingDays) {
+    final rawActivated = json['ActivatedAt'] ?? json['activatedAt'];
+    final rawExpired = json['ExpiredAt'] ?? json['expiredAt'];
+    
+    final activatedAt = (rawActivated != null && rawActivated.toString().isNotEmpty) ? (DateTime.tryParse(rawActivated.toString()) ?? DateTime.now()) : DateTime.now();
+    final expiredAt = (rawExpired != null && rawExpired.toString().isNotEmpty) ? (DateTime.tryParse(rawExpired.toString()) ?? DateTime.now()) : DateTime.now();
+
+    // 若後端未提供 remainingDays 或抓取為 0，則利用過期日自行補算
+    double actualRemainingDays = remainingDays;
+    if (actualRemainingDays <= 0) {
+      final diff = expiredAt.difference(DateTime.now());
+      if (diff.inDays > 0) actualRemainingDays = diff.inDays.toDouble();
+      else if (diff.inSeconds > 0) actualRemainingDays = 1.0; // 不足一天但未過期，至少顯示 1 天
+    }
+
     return ActivePlanModel(
-      licenseKey: json['LicenseKey']?.toString() ?? '',
-      subscriptionPlan: json['SubscriptionPlan']?.toString() ?? '',
-      teamUUID: json['TeamUUID']?.toString() ?? '',
-      licenseStatus: json['LicenseStatus']?.toString() ?? '',
-      activatedAt: (json['ActivatedAt'] != null && json['ActivatedAt'].toString().isNotEmpty) ? (DateTime.tryParse(json['ActivatedAt'].toString()) ?? DateTime.now()) : DateTime.now(),
-      expiredAt: (json['ExpiredAt'] != null && json['ExpiredAt'].toString().isNotEmpty) ? (DateTime.tryParse(json['ExpiredAt'].toString()) ?? DateTime.now()) : DateTime.now(),
+      licenseKey: (json['LicenseKey'] ?? json['licenseKey'])?.toString() ?? '',
+      subscriptionPlan: (json['SubscriptionPlan'] ?? json['subscriptionPlan'])?.toString() ?? '',
+      teamUUID: (json['TeamUUID'] ?? json['teamUUID'])?.toString() ?? '',
+      licenseStatus: (json['LicenseStatus'] ?? json['licenseStatus'])?.toString() ?? '',
+      activatedAt: activatedAt,
+      expiredAt: expiredAt,
       teamName: teamName,
-      remainingDays: remainingDays,
+      remainingDays: actualRemainingDays,
     );
   }
 }
@@ -81,40 +95,22 @@ class SubscriptionResponseModel {
   });
 
   factory SubscriptionResponseModel.fromJson(Map<String, dynamic> json) {
+    final rawActivated = json['ActivatedAt'] ?? json['activatedAt'];
+    final rawExpired = json['ExpiredAt'] ?? json['expiredAt'];
+
     return SubscriptionResponseModel(
-      licenseKey: json['LicenseKey']?.toString() ?? '',
-      teamUUID: json['TeamUUID']?.toString() ?? '',
-      subscriptionPlan: json['SubscriptionPlan']?.toString() ?? '',
-      licenseStatus: json['LicenseStatus']?.toString() ?? '',
-      activatedAt: (json['ActivatedAt'] != null && json['ActivatedAt'].toString().isNotEmpty) ? (DateTime.tryParse(json['ActivatedAt'].toString()) ?? DateTime.now()) : DateTime.now(),
-      expiredAt: (json['ExpiredAt'] != null && json['ExpiredAt'].toString().isNotEmpty) ? (DateTime.tryParse(json['ExpiredAt'].toString()) ?? DateTime.now()) : DateTime.now(),
+      licenseKey: (json['LicenseKey'] ?? json['licenseKey'])?.toString() ?? '',
+      teamUUID: (json['TeamUUID'] ?? json['teamUUID'])?.toString() ?? '',
+      subscriptionPlan: (json['SubscriptionPlan'] ?? json['subscriptionPlan'])?.toString() ?? '',
+      licenseStatus: (json['LicenseStatus'] ?? json['licenseStatus'])?.toString() ?? '',
+      activatedAt: (rawActivated != null && rawActivated.toString().isNotEmpty) ? (DateTime.tryParse(rawActivated.toString()) ?? DateTime.now()) : DateTime.now(),
+      expiredAt: (rawExpired != null && rawExpired.toString().isNotEmpty) ? (DateTime.tryParse(rawExpired.toString()) ?? DateTime.now()) : DateTime.now(),
     );
   }
 }
 
 /// Subscription API 服務層
 class SubscriptionApiService {
-  // 可以將共同的 Domain 寫在這裡，方便統一修改
-  static const String baseUrl = 'http://192.168.0.99:5243/api/subscripion';
-
-  /// 共用的 POST 請求方法
-  static Future<http.Response> _post(String endpoint, Map<String, dynamic> payload) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(payload),
-    );
-  }
-
-  /// 共用的 GET 請求方法
-  static Future<http.Response> _get(String endpoint) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.get(
-      url,
-      headers: {"Content-Type": "application/json"},
-    );
-  }
 
   /// 1. 建立團隊 (POST /creatTeam)
   static Future<(String? errorMessage, TeamModel? data)> createTeam({
@@ -126,7 +122,7 @@ class SubscriptionApiService {
         'GeneratorUUID': generatorUUID,
         'TeamName': teamName,
       };
-      final response = await _post('/creatTeam', payload);
+      final response = await BaseApi.post('/Subscription/creatTeam', payload);
       final decoded = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -142,7 +138,7 @@ class SubscriptionApiService {
   /// 2. 取得使用者所有團隊 (GET /GetTeams/{userUUID})
   static Future<List<TeamModel>?> getTeams(String userUUID) async {
     try {
-      final response = await _get('/GetTeams/$userUUID');
+      final response = await BaseApi.get('/Subscription/GetTeams/$userUUID');
       
       print('--- [Debug] 取得團隊 API 狀態碼: ${response.statusCode} ---');
       print('--- [Debug] 取得團隊 API 回傳值: ${response.body} ---');
@@ -171,13 +167,21 @@ class SubscriptionApiService {
   /// 3. 取得團隊生效中方案 (GET /activePlan/{teamUUID})
   static Future<ActivePlanModel?> getActivePlan(String teamUUID) async {
     try {
-      final response = await _get('/activePlan/$teamUUID');
+      final response = await BaseApi.get('/Subscription/activePlan/$teamUUID');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
+        final data = decoded['data'];
+        if (data == null) return null; // 如果沒有訂閱資料物件，直接回傳 null
+        
+        // 多重檢查 remainingDays 的位置 (根目錄、data物件內、大寫或小寫)
+        double rDays = (decoded['remainingDays'] as num?)?.toDouble() ?? 
+                       (data['remainingDays'] as num?)?.toDouble() ?? 
+                       (data['RemainingDays'] as num?)?.toDouble() ?? 0.0;
+
         return ActivePlanModel.fromJson(
-          Map<String, dynamic>.from(decoded['data'] ?? {}),
-          decoded['teamName'] ?? '',
-          (decoded['remainingDays'] as num?)?.toDouble() ?? 0.0,
+          Map<String, dynamic>.from(data),
+          (decoded['teamName'] ?? decoded['TeamName'] ?? '').toString(),
+          rDays,
         );
       }
       return null;
@@ -198,7 +202,7 @@ class SubscriptionApiService {
         'SubscriptionPlan': subscriptionPlan,
         'LicenseKey': licenseKey,
       };
-      final response = await _post('/subscribe', payload);
+      final response = await BaseApi.post('/Subscription/subscribe', payload);
       
       print('--- [Debug] 訂閱 API 狀態碼: ${response.statusCode} ---');
       print('--- [Debug] 訂閱 API 回傳值: ${response.body} ---');

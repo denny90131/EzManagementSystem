@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../Services/Authenticator/api_service.dart';
+import '../../../../API/Authenticator_api.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;

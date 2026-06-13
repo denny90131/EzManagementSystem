@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Component/NavBar.dart'; // 修正為正確的導航框架路徑
-import '../../Services/Authenticator/api_service.dart';
+import '../../API/Authenticator_api.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'Register.dart';

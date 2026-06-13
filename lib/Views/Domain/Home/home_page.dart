@@ -5,8 +5,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../Services/Authenticator/api_service.dart';
-import '../../Domain/Home/Component/settings_sheet.dart'; // 引入獨立的底部選單元件
+import '../../../API/Authenticator_api.dart';
+import '../../../API/Team_api.dart'; // 引入團隊 API
+import 'Setting/settings_sheet.dart'; // 引入獨立的底部選單元件
+import 'ConstructionSite/add_construction.dart'; // 引入新增工地的獨立對話框
+import 'ConstructionSite/details_construction.dart'; // 引入工地詳情頁面
+import 'Dispatch/dispatch_work.dart'; // 引入派工的獨立對話框
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -24,6 +28,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _userPhone;
   bool _isProfileComplete = true; // 新增：追蹤個人資料是否完整
   Map<String, dynamic>? _fullUserData;
+  List<Map<String, dynamic>> _teamMembers = []; // 新增：團隊成員名單
+  bool _isLoading = true; // 新增：控制載入中動畫狀態
 
   late AnimationController _animationController;
   late Animation<double> _animation;
@@ -48,15 +54,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     // 無論有無傳入初始資料，都在背景執行一次以取得最新的「資料填寫進度狀態 (_isProfileComplete)」
     _fetchData(); 
 
-    // 初始化儀表板動畫 (從 0 跑到 85%)
+    // 初始化儀表板動畫 (預設 0%，待 API 抓回資料後再動態計算目標進度)
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500), // 播放時間 1.5 秒
     );
-    _animation = Tween<double>(begin: 0.0, end: 0.85).animate(
+    _animation = Tween<double>(begin: 0.0, end: 0.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
-    _animationController.forward();
   }
 
   @override
@@ -69,6 +74,46 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
+      
+      // ===== 新增：取得團隊成員資料 =====
+      final activeTeamId = prefs.getString('active_team_uuid');
+      if (activeTeamId != null && activeTeamId.isNotEmpty) {
+        final members = await TeamApiService.getMemberTeam(activeTeamId);
+        if (mounted) {
+          setState(() {
+            if (members != null) {
+              _teamMembers = members.map<Map<String, dynamic>>((m) {
+                final profile = m['profile'] ?? {};
+                final teamInfo = m['teamInfo'] ?? m['TeamInfo'] ?? {};
+                return {
+                  'name': profile['name'] ?? profile['Name'] ?? '未命名',
+                  'picture': profile['picture'] ?? profile['Picture'],
+                  'phone': profile['phoneNumber'] ?? profile['PhoneNumber'] ?? '無',
+                  'iceName': profile['iceName'] ?? profile['ICEName'] ?? '無',
+                  'icePhone': profile['icePhoneNumber'] ?? profile['ICEPhoneNumber'] ?? '無',
+                  'iceRelation': profile['iceRelation'] ?? profile['ICERelation'] ?? '',
+                  // 分開儲存團隊備註與個人備註
+                  'teamNote': teamInfo['note'] ?? teamInfo['Note'] ?? '', // 團隊專屬備註
+                  'personalNote': profile['note'] ?? profile['Note'] ?? '', // 個人基本資料備註
+                  'isWorking': false, // TODO: 未來串接真實派工狀態後替換
+                };
+              }).toList();
+            } else {
+              _teamMembers = [];
+            }
+            _updateAttendanceAnimation(); // 資料載入完畢，更新出勤率動畫
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _teamMembers = [];
+            _updateAttendanceAnimation();
+          });
+        }
+      }
+      // ==============================
+
       if (userId != null) {
         final userData = await ApiService.getUserById(userId);
         if (userData != null && userData['name'] != null) {
@@ -93,7 +138,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       }
     } catch (e) {
       if (mounted) setState(() => _userName = '無法載入');
+    } finally {
+      if (mounted) setState(() => _isLoading = false); // 無論成功失敗，結束載入狀態
     }
+  }
+
+  // 動態更新出勤率動畫
+  void _updateAttendanceAnimation() {
+    final workingCount = _teamMembers.where((m) => m['isWorking'] == true).length;
+    final targetRatio = _teamMembers.isEmpty ? 0.0 : (workingCount / _teamMembers.length);
+    
+    _animation = Tween<double>(begin: 0.0, end: targetRatio).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+    _animationController.forward(from: 0.0); // 觸發動畫
   }
 
   // 顯示設定選單 (點擊姓名大頭貼時觸發)
@@ -193,250 +251,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // 彈出視窗專用的輸入框元件
-  Widget _buildDialogTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false, VoidCallback? onTap}) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      readOnly: readOnly,
-      onTap: onTap,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
-        filled: true,
-        fillColor: const Color(0xFF121824),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-      ),
-    );
-  }
-
-  // 顯示「新增工地」彈出視窗
-  void _showAddSiteDialog(BuildContext context) {
-    final TextEditingController ownerNameController = TextEditingController();
-    final TextEditingController ownerPhoneController = TextEditingController();
-    final TextEditingController siteNameController = TextEditingController();
-    final TextEditingController siteAddressController = TextEditingController();
-    final TextEditingController contractorNameController = TextEditingController();
-    final TextEditingController contractorPhoneController = TextEditingController();
-    final TextEditingController budgetController = TextEditingController();
-    final TextEditingController orderDateController = TextEditingController();
-    final TextEditingController notesController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A2232), // 深色卡片背景
-              title: const Text('新增工地', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDialogTextField(ownerNameController, '業主名稱', Icons.person_outline),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(ownerPhoneController, '業主手機號碼', Icons.phone_outlined, keyboardType: TextInputType.phone),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(siteNameController, '工地名稱', Icons.work_outline),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(siteAddressController, '工地地址', Icons.location_on_outlined),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(contractorNameController, '發包人名稱', Icons.handshake_outlined),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(contractorPhoneController, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(budgetController, '預算金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(orderDateController, '訂單日期', Icons.calendar_today_outlined, readOnly: true, onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            orderDateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-                          });
-                        }
-                      }),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(notesController, '備註', Icons.note_alt_outlined, maxLines: 3),
-                    ],
-                  ),
-                ),
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6))),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (siteNameController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請填寫工地名稱')));
-                      return;
-                    }
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已建立新工地：${siteNameController.text}')));
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black),
-                  child: const Text('確認新增', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // 顯示「派工」彈出視窗
-  void _showDispatchDialog(BuildContext context) {
-    String? selectedSite;
-    List<String> selectedEmployees = [];
-    final TextEditingController notesController = TextEditingController();
-
-    // 模擬資料列表
-    final List<String> availableSites = ['中山區辦公大樓空調維護', '信義區百貨管線重整', '大安區豪宅裝潢工程'];
-    final Future<List<dynamic>?> usersFuture = ApiService.getAllUsers(); // 提前取得真實員工名單
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A2232), // 深色卡片背景
-              title: const Text('派工', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('選擇派工工地', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: selectedSite,
-                      dropdownColor: const Color(0xFF121824),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFF121824),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      hint: const Text('請選擇工地', style: TextStyle(color: Color(0xFF8A94A6))),
-                      items: availableSites.map((site) {
-                        return DropdownMenuItem(value: site, child: Text(site));
-                      }).toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          selectedSite = val;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    const Text('選擇派工人員 (可多選)', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
-                    const SizedBox(height: 8),
-                    FutureBuilder<List<dynamic>?>(
-                      future: usersFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(color: Color(0xFFE5BA73), strokeWidth: 2.0)));
-                        }
-                        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Text('目前無可派工之員工或無法載入', style: TextStyle(color: Colors.redAccent, fontSize: 13));
-                        }
-
-                        final users = snapshot.data!;
-                        // 抓取真實員工的名字，若無名稱則防呆
-                        final availableEmployees = users.map((u) => u['name']?.toString() ?? '未知員工').toList();
-
-                        return Wrap(
-                          spacing: 8.0,
-                          runSpacing: 8.0,
-                          children: availableEmployees.map((emp) {
-                            final isSelected = selectedEmployees.contains(emp);
-                            return FilterChip(
-                              label: Text(emp, style: TextStyle(color: isSelected ? Colors.black : Colors.white)),
-                              selected: isSelected,
-                              selectedColor: const Color(0xFFE5BA73),
-                              backgroundColor: const Color(0xFF121824),
-                              checkmarkColor: Colors.black,
-                              onSelected: (bool selected) {
-                                setState(() {
-                                  if (selected) {
-                                    selectedEmployees.add(emp);
-                                  } else {
-                                    selectedEmployees.remove(emp);
-                                  }
-                                });
-                              },
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    const Text('派工備註', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: notesController,
-                      maxLines: 3,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: '輸入派工備註事項（例如：請攜帶A字梯）...',
-                        hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
-                        filled: true,
-                        fillColor: const Color(0xFF121824),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6))),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (selectedSite == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請選擇工地')));
-                      return;
-                    }
-                    if (selectedEmployees.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請至少選擇一位員工')));
-                      return;
-                    }
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功派工 ${selectedEmployees.length} 人至 $selectedSite')));
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black),
-                  child: const Text('確認派工', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   // 顯示員工詳細資訊的底部彈出視窗
-  void _showEmployeeDetails(BuildContext context, int index, bool isWorking) {
+  void _showEmployeeDetails(BuildContext context, Map<String, dynamic> member, bool isWorking) {
+    String avatarChar = member['name'].toString().isNotEmpty ? member['name'].toString().substring(0, 1) : '?';
+    final pictureBase64 = member['picture']?.toString();
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A2232), // 深色卡片背景
@@ -456,14 +275,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     CircleAvatar(
                       radius: 32,
                       backgroundColor: isWorking ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                      child: Text('員${index + 1}', style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 20)),
+                      backgroundImage: pictureBase64 != null && pictureBase64.isNotEmpty
+                          ? MemoryImage(base64Decode(pictureBase64.split(',').last.replaceAll(RegExp(r'\s+'), '')))
+                          : null,
+                      child: (pictureBase64 == null || pictureBase64.isEmpty) ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 20)) : null,
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('測試員工 ${index + 1}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                          Text(member['name'], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                           const SizedBox(height: 4),
                           Text(isWorking ? '狀態：施工中 (中山區案件)' : '狀態：待命中', style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontSize: 14)),
                         ],
@@ -480,9 +302,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 // 聯絡方式
                 const Text('聯絡方式', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 16),
-                _buildCaseInfoRow(Icons.phone_outlined, '0912-345-678', const Color(0xFFE5BA73)),
+                _buildCaseInfoRow(Icons.phone_outlined, member['phone'], const Color(0xFFE5BA73)),
                 const SizedBox(height: 12),
-                _buildCaseInfoRow(Icons.contact_emergency_outlined, '緊急聯絡人: 王小明 (配偶) \n0987-654-321', const Color(0xFFE5BA73)),
+                _buildCaseInfoRow(
+                  Icons.contact_emergency_outlined, 
+                  '緊急聯絡人: ${member['iceName']} ${member['iceRelation'].isNotEmpty ? '(${member['iceRelation']})' : ''}\n${member['icePhone']}', 
+                  const Color(0xFFE5BA73)
+                ),
+                
+                if (member['teamNote'] != null && member['teamNote'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildCaseInfoRow(Icons.note_alt_outlined, '團隊備註: ${member['teamNote']}', const Color(0xFFE5BA73)),
+                ],
+                if (member['personalNote'] != null && member['personalNote'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildCaseInfoRow(Icons.assignment_ind_outlined, '個人備註: ${member['personalNote']}', const Color(0xFF8A94A6)),
+                ],
                 
                 const SizedBox(height: 24),
                 
@@ -518,6 +353,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final weekdayStr = '星期${weekdays[today.weekday - 1]}';
     final dateString = '${today.year}年${today.month}月${today.day}日 $weekdayStr';
+    
+    // 動態計算當前出勤與空班人數
+    final workingCount = _teamMembers.where((m) => m['isWorking'] == true).length;
+    final idleCount = _teamMembers.length - workingCount;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121824), // 頁面深色背景
@@ -579,7 +418,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     Tooltip(
                       message: '新增工地',
                       child: ElevatedButton(
-                        onPressed: () => _showAddSiteDialog(context),
+                        onPressed: () => AddConstructionDialog.show(context), // 呼叫獨立的靜態方法
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1A2232), // 深色底搭配金邊
                           side: const BorderSide(color: Color(0xFFE5BA73)),
@@ -593,7 +432,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
-                      onPressed: () => _showDispatchDialog(context),
+                      onPressed: () => DispatchDialog.show(context), // 呼叫獨立的靜態方法
                       icon: const Icon(Icons.assignment_ind_outlined, size: 16, color: Colors.black),
                       label: const Text('派工', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
                       style: ElevatedButton.styleFrom(
@@ -686,9 +525,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildHoneycombStat('今日工地', '3', const Color(0xFFE5BA73)),
-                        _buildHoneycombStat('總員工', '20', Colors.blue.shade100),
-                        _buildHoneycombStat('今日出工', '17', Colors.greenAccent),
-                        _buildHoneycombStat('今日空班', '3', Colors.redAccent),
+                        _buildHoneycombStat('總員工', '${_teamMembers.length}', Colors.blue.shade100),
+                        _buildHoneycombStat('今日出工', '$workingCount', Colors.greenAccent),
+                        _buildHoneycombStat('今日空班', '$idleCount', Colors.redAccent),
                       ],
                     ),
                   ),
@@ -706,51 +545,68 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               // 5. 員工狀態 (待命/工作中)
               const Text('員工狀態', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 16),
-              SizedBox(
-                height: 64, // 增加一點高度容納卡片框
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: 5, // 測試資料，加入多筆展示左右滑動效果
-                  separatorBuilder: (context, index) => const SizedBox(width: 16),
-                  itemBuilder: (context, index) {
-                    final isWorking = index % 2 == 0; // 模擬資料邏輯
-                    return GestureDetector(
-                      onTap: () => _showEmployeeDetails(context, index, isWorking),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A2232), // 獨立深色卡片
-                          borderRadius: BorderRadius.circular(32), // 膠囊圓角
-                          border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.2)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: isWorking ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                              child: Text('員${index + 1}', style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+              _isLoading
+                  ? const SizedBox(
+                      height: 64,
+                      child: Center(child: CircularProgressIndicator(color: Color(0xFFE5BA73))), // 載入中動畫
+                    )
+                  : _teamMembers.isEmpty
+                      ? const SizedBox(
+                          height: 64,
+                          child: Center(child: Text('目前團隊無成員', style: TextStyle(color: Color(0xFF8A94A6)))),
+                        )
+                      : SizedBox(
+                      height: 64, // 增加一點高度容納卡片框
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _teamMembers.length,
+                        separatorBuilder: (context, index) => const SizedBox(width: 16),
+                        itemBuilder: (context, index) {
+                          final member = _teamMembers[index];
+                          final isWorking = member['isWorking'] == true;
+                          String avatarChar = member['name'].toString().isNotEmpty ? member['name'].toString().substring(0, 1) : '?';
+                          final pictureBase64 = member['picture']?.toString();
+                          
+                          return GestureDetector(
+                            onTap: () => _showEmployeeDetails(context, member, isWorking),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A2232), // 獨立深色卡片
+                                borderRadius: BorderRadius.circular(32), // 膠囊圓角
+                                border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.2)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: isWorking ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                                    backgroundImage: pictureBase64 != null && pictureBase64.isNotEmpty
+                                        ? MemoryImage(base64Decode(pictureBase64.split(',').last.replaceAll(RegExp(r'\s+'), '')))
+                                        : null,
+                                    child: (pictureBase64 == null || pictureBase64.isEmpty) ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)) : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(member['name'], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        isWorking ? '施工中' : '待命',
+                                        style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(width: 12),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('測試員工 ${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  isWorking ? '施工中' : '待命',
-                                  style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-              ),
+                    ),
               const SizedBox(height: 24),
               
               // 6. 即將到來案件 (點擊進入詳細頁面)
@@ -892,400 +748,4 @@ class _HoneycombPainter extends CustomPainter {
   bool shouldRepaint(covariant _HoneycombPainter oldDelegate) {
     return oldDelegate.borderColor != borderColor || oldDelegate.backgroundColor != backgroundColor;
   }
-}
-
-// --- 案件詳細頁面 (點擊案件卡片時導覽) ---
-class CaseDetailPage extends StatefulWidget {
-  const CaseDetailPage({super.key});
-
-  @override
-  State<CaseDetailPage> createState() => _CaseDetailPageState();
-}
-
-class _CaseDetailPageState extends State<CaseDetailPage> {
-  int _currentTab = 1; // 0: 會議紀錄, 1: 現況照
-
-  Widget _buildTab(int index, String title) {
-    bool isSelected = _currentTab == index;
-    return GestureDetector(
-      onTap: () => setState(() => _currentTab = index),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6),
-              fontSize: 16,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (isSelected)
-            Container(
-              width: 24,
-              height: 3,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE5BA73),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            )
-          else
-            const SizedBox(height: 3),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121824), // 深色背景
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF121824), // 深色背景
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('工地資料', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.people_alt_outlined, color: Color(0xFFE5BA73)),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // 2. 專案資料分類標籤
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-            child: Row(
-              children: [
-                _buildTab(0, '會議紀錄'),
-                const SizedBox(width: 24),
-                _buildTab(1, '現況照'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // 3. 照片網格內容區
-          if (_currentTab == 1)
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20.0),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A2232),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5)),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 9 / 16, // 16:9 垂直長方型
-                        ),
-                        itemCount: 4, // 模擬 4 張圖片
-                        itemBuilder: (context, index) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF121824),
-                              borderRadius: BorderRadius.circular(8),
-                              image: const DecorationImage(
-                                image: AssetImage('assets/images/placeholder.png'), // 請確保專案有此圖片，或替換為 NetworkImage
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            child: const Center(child: Icon(Icons.image_outlined, color: Color(0xFF8A94A6), size: 36)),
-                          );
-                        },
-                      ),
-                    ),
-                    // 統計與下載操作 Footer
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A2232),
-                        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('共 4 張圖片', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
-                          OutlinedButton(
-                            onPressed: () {},
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF1A2232),
-                              side: const BorderSide(color: Colors.white),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: const Text('下載全部圖片', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // 4. 會議紀錄區 (Tab 0)
-          if (_currentTab == 0)
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20.0),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A2232),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.assignment_outlined, size: 48, color: Color(0xFF8A94A6)),
-                    const SizedBox(height: 16),
-                    const Text('目前尚無會議紀錄', style: TextStyle(color: Color(0xFF8A94A6))),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddRecordScreen())),
-                      icon: const Icon(Icons.add, color: Colors.black),
-                      label: const Text('新增紀錄', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-      // 4. 底部固定操作欄與漂浮按鈕
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFE5BA73),
-        child: const Icon(Icons.home_outlined, color: Colors.black, size: 28),
-        onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A2232), // 深色卡片
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, -5)),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: const Text('上傳圖片', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF121824),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Color(0xFFE5BA73)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE5BA73), // 金色按鈕
-                    foregroundColor: Colors.black, // 黑字
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('回報進度', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// --- 新增紀錄頁面 ---
-class AddRecordScreen extends StatelessWidget {
-  const AddRecordScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212), // 極深黑背景
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E), // 深灰 Header
-        elevation: 0,
-        leadingWidth: 80,
-        leading: TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 16)),
-        ),
-        title: const Text('新增紀錄', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('紀錄已儲存')));
-              Navigator.pop(context);
-            },
-            child: const Text('確認', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E), // 表單容器淺灰底(Dark mode 下的深灰卡片)
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 區塊 A: 公開紀錄
-              const Text('公開紀錄', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
-              const SizedBox(height: 12),
-              TextField(
-                maxLines: 4,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: '請輸入公開的會議內容',
-                  hintStyle: const TextStyle(color: Colors.white30),
-                  filled: true,
-                  fillColor: const Color(0xFF121212),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF121212),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(Icons.image_outlined, color: Color(0xFF8A94A6), size: 32),
-                    SizedBox(height: 8),
-                    Text('公開上傳圖片', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // 區塊 B: 非公開紀錄 (隱私虛線框設計)
-              CustomPaint(
-                painter: _DashedRectPainter(color: Colors.white30, strokeWidth: 1.5, gap: 6, dash: 6),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Text('非公開紀錄', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 14, fontWeight: FontWeight.bold)),
-                          SizedBox(width: 8),
-                          Icon(Icons.visibility_off_outlined, color: Color(0xFFE5BA73), size: 16),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        maxLines: 4,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: '此資料填寫後僅內部可見...',
-                          hintStyle: const TextStyle(color: Colors.white30),
-                          filled: true,
-                          fillColor: const Color(0xFF121212),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF121212),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white12),
-                        ),
-                        child: const Column(
-                          children: [
-                            Icon(Icons.image_outlined, color: Color(0xFF8A94A6), size: 32),
-                            SizedBox(height: 8),
-                            Text('隱藏圖片', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// 繪製虛線圓角矩形的 CustomPainter
-class _DashedRectPainter extends CustomPainter {
-  final Color color;
-  final double strokeWidth;
-  final double gap;
-  final double dash;
-
-  _DashedRectPainter({this.color = Colors.white, this.strokeWidth = 1.0, this.gap = 5.0, this.dash = 5.0});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()..color = color..strokeWidth = strokeWidth..style = PaintingStyle.stroke;
-    final Path path = Path()..addRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(12)));
-    
-    Path dashPath = Path();
-    double distance = 0.0;
-    for (PathMetric pathMetric in path.computeMetrics()) {
-      while (distance < pathMetric.length) {
-        dashPath.addPath(pathMetric.extractPath(distance, distance + dash), Offset.zero);
-        distance += dash;
-        distance += gap;
-      }
-      distance = 0.0;
-    }
-    canvas.drawPath(dashPath, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

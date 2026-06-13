@@ -1,42 +1,12 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'All_api.dart'; // 引入共用 API
 
 class ApiService {
-  // 可以將共同的 Domain 寫在這裡，方便統一修改
-  static const String baseUrl = 'http://192.168.0.99:5243/api';
-
-  /// 共用的 POST 請求方法，只要傳入後半段的網址 (endpoint) 即可
-  static Future<http.Response> _post(String endpoint, Map<String, dynamic> payload) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(payload),
-    );
-  }
-
-  /// 共用的 GET 請求方法，只要傳入後半段的網址 (endpoint) 即可
-  static Future<http.Response> _get(String endpoint) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.get(
-      url,
-      headers: {"Content-Type": "application/json"},
-    );
-  }
-
-  /// 共用的 DELETE 請求方法
-  static Future<http.Response> _delete(String endpoint) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    return await http.delete(
-      url,
-      headers: {"Content-Type": "application/json"},
-    );
-  }
 
   /// 1. 檢查資料庫連線狀態
   static Future<bool> checkConnection() async {
     try {
-      final response = await _get('/Identity/check-connection');
+      final response = await BaseApi.get('/Identity/check-connection');
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -46,7 +16,7 @@ class ApiService {
   /// 2. 取得所有客戶資料
   static Future<List<dynamic>?> getAllUsers() async {
     try {
-      final response = await _get('/Identity/');
+      final response = await BaseApi.get('/Identity/');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         return decoded['data'] ?? decoded;
@@ -60,7 +30,7 @@ class ApiService {
   /// 3. 取得單筆客戶資料
   static Future<Map<String, dynamic>?> getUserById(String id) async {
     try {
-      final response = await _get('/Identity/$id');
+      final response = await BaseApi.get('/Identity/$id');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         return decoded['data'] ?? decoded; // 確保能解開後端的 data 包裝
@@ -74,7 +44,7 @@ class ApiService {
   /// 4. 取得客戶資料填寫進度
   static Future<Map<String, dynamic>?> getCompletionStatus(String userId) async {
     try {
-      final response = await _get('/Identity/$userId/completion-status');
+      final response = await BaseApi.get('/Identity/$userId/completion-status');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else {
@@ -92,7 +62,7 @@ class ApiService {
         "phoneNumber": phoneNumber,
         "password": password
       };
-      final response = await _post('/Identity/login', payload);
+      final response = await BaseApi.post('/Identity/login', payload);
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
@@ -112,7 +82,7 @@ class ApiService {
   /// 回傳 null 代表成功，回傳字串代表有錯誤訊息
   static Future<String?> registerUser(Map<String, dynamic> payload) async {
     try {
-      final response = await _post('/Identity/upsert', payload);
+      final response = await BaseApi.post('/Identity/upsert', payload);
 
       if (response.statusCode == 200) {
         return null; // 成功不回傳錯誤
@@ -144,7 +114,7 @@ class ApiService {
   /// 5.5 更新客戶資料 (Upsert)
   static Future<String?> updateUser(Map<String, dynamic> payload) async {
     try {
-      final response = await _post('/Identity/upsert', payload);
+      final response = await BaseApi.post('/Identity/upsert', payload);
 
       if (response.statusCode == 200) {
         return null; // 成功不回傳錯誤
@@ -176,7 +146,7 @@ class ApiService {
   /// 6. 刪除客戶資料
   static Future<String?> deleteUser(String id) async {
     try {
-      final response = await _delete('/Identity/$id');
+      final response = await BaseApi.delete('/Identity/$id');
       if (response.statusCode == 200) return null;
       return '刪除失敗：${response.statusCode}';
     } catch (e) {

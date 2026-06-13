@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../Services/Authenticator/api_service.dart';
+import '../../API/Authenticator_api.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

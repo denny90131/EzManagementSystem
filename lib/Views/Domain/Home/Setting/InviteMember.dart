@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../Services/Invite/api_service.dart';
+import '../../../../API/Invite_api.dart';
 
 class InviteMemberDialog extends StatefulWidget {
   final String teamUUID;

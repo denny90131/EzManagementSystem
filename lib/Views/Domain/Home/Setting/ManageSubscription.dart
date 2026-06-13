@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../Services/Subscription/api_service.dart';
+import '../../../../API/Subscribe_api.dart';
 
 class ManageSubscriptionDialog extends StatefulWidget {
   final String teamUUID;

@@ -4,8 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Authenticator/Login.dart';
 import '../Setting/EditRegisterInfo.dart';
-import '../../../../Services/Subscription/api_service.dart';
-import '../../../../Services/Invite/api_service.dart'; // 引入 Invite 團隊服務
+import '../../../../API/Subscribe_api.dart';
+import '../../../../API/Invite_api.dart'; // 引入 Invite 團隊服務
+import '../../../../API/Team_api.dart'; // 引入 Team 相關服務
 import '../Setting/ManageSubscription.dart'; // 引入新分離的檔案
 import '../Setting/InviteMember.dart'; // 引入邀請成員介面
 import '../Setting/ManageMyTeam.dart'; // 引入管理我的團隊介面
@@ -67,15 +68,23 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     if (!mounted) return;
     setState(() => _isLoadingTeams = true);
     try {
-      final teamsData = await SubscriptionApiService.getTeams(_userId!);
+      final teamsData = await TeamApiService.getTeamByMember(_userId!);
       if (!mounted) return;
       
       setState(() {
         // 過濾掉 UUID 為空的異常資料，避免 DropdownButton 崩潰
-        final validTeams = teamsData?.where((t) => t.teamUUID.isNotEmpty).toList() ?? [];
-        _teams = validTeams.map<Map<String, dynamic>>((t) => {
-          'TeamUUID': t.teamUUID,
-          'TeamName': t.teamName.isNotEmpty ? t.teamName : '未命名團隊',
+        final validTeams = teamsData?.where((t) {
+          final uuid = t['teamUUID'] ?? t['TeamUUID'];
+          return uuid != null && uuid.toString().isNotEmpty;
+        }).toList() ?? [];
+        
+        _teams = validTeams.map<Map<String, dynamic>>((t) {
+          final uuid = (t['teamUUID'] ?? t['TeamUUID']).toString();
+          final name = (t['teamName'] ?? t['TeamName'])?.toString() ?? '';
+          return {
+            'TeamUUID': uuid,
+            'TeamName': name.isNotEmpty ? name : '未命名團隊',
+          };
         }).toList();
         
         if (_teams.isNotEmpty) {
