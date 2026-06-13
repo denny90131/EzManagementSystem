@@ -33,7 +33,7 @@ class ToolboxPage extends StatelessWidget {
         title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.handyman_rounded, color: Color(0xFFE5BA73)),
+            Icon(Icons.build, color: Color(0xFFE5BA73)),
             SizedBox(width: 8),
             Text('工具箱', style: TextStyle(fontWeight: FontWeight.bold)),
           ],

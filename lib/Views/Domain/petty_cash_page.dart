@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 class PettyCashPage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -60,15 +63,70 @@ class PettyCashPage extends StatelessWidget {
     );
   }
 
+  // 建立表單下拉選單的輔助元件
+  Widget _buildDialogDropdownField(String label, IconData icon, List<String> items, String? value, ValueChanged<String?> onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      dropdownColor: const Color(0xFF1A2232),
+      onChanged: onChanged,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
+        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
+        filled: true,
+        fillColor: const Color(0xFF121824),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+      ),
+      items: items.map((String item) => DropdownMenuItem<String>(value: item, child: Text(item))).toList(),
+    );
+  }
+
+  // 建立選項切換的輔助元件 (平行擺放用)
+  Widget _buildSegmentedControl(String label, List<String> options, String currentValue, ValueChanged<String> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: options.map((opt) => Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: opt == options.last ? 0 : 8.0),
+              child: ChoiceChip(
+                label: Center(child: Text(opt, style: TextStyle(fontSize: 12, color: currentValue == opt ? Colors.black : Colors.white))),
+                selected: currentValue == opt,
+                selectedColor: const Color(0xFFE5BA73),
+                backgroundColor: const Color(0xFF121824),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: currentValue == opt ? const Color(0xFFE5BA73) : Colors.white12)),
+                showCheckmark: false,
+                onSelected: (val) { if (val) onChanged(opt); },
+              ),
+            ),
+          )).toList(),
+        ),
+      ],
+    );
+  }
+
   // 顯示「新增紀錄」彈出視窗
   void _showAddTransactionDialog(BuildContext context) {
+    final ImagePicker picker = ImagePicker();
     final TextEditingController titleController = TextEditingController();
     final TextEditingController amountController = TextEditingController();
     final TextEditingController dateController = TextEditingController(
       text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
     );
+    final TextEditingController vendorController = TextEditingController();
     final TextEditingController notesController = TextEditingController();
     bool isExpense = true; // 預設為「支出」
+    String? selectedPaymentMethod;
+    String? selectedTrade;
+    String taxType = '不拿發票';
+    String? selectedHandler;
+    String payerType = '公司';
+    List<dynamic> attachedFiles = [];
 
     showDialog(
       context: context,
@@ -117,14 +175,10 @@ class PettyCashPage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      _buildDialogTextField(titleController, '項目名稱 / 摘要', Icons.edit_note_outlined),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(amountController, '金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildDialogTextField(
                         dateController, 
-                        '日期', 
+                        '付款日期', 
                         Icons.calendar_today_outlined, 
                         readOnly: true, 
                         onTap: () async {
@@ -142,6 +196,129 @@ class PettyCashPage extends StatelessWidget {
                         }
                       ),
                       const SizedBox(height: 12),
+                      _buildDialogDropdownField('支付方式', Icons.payment_outlined, ['現金', '電匯/簽帳'], selectedPaymentMethod, (val) => setState(() => selectedPaymentMethod = val)),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(vendorController, '購買對象 (廠商/店名)', Icons.storefront_outlined),
+                      const SizedBox(height: 12),
+                      _buildDialogDropdownField('工種', Icons.category_outlined, ['泥作', '木作', '水電', '油漆', '空調', '清潔', '其他'], selectedTrade, (val) => setState(() => selectedTrade = val)),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(titleController, '項目名稱', Icons.edit_note_outlined),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(amountController, '金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
+                      const SizedBox(height: 16),
+                      _buildSegmentedControl('稅務選項', ['稅內', '稅外', '不拿發票'], taxType, (val) => setState(() => taxType = val)),
+                      const SizedBox(height: 16),
+                      _buildDialogDropdownField('經手人', Icons.person_outline, ['經手人A', '經手人B', '老闆'], selectedHandler, (val) => setState(() => selectedHandler = val)),
+                      const SizedBox(height: 16),
+                      _buildSegmentedControl('誰付錢', ['公司', '廠商'], payerType, (val) => setState(() => payerType = val)),
+                      const SizedBox(height: 16),
+                      
+                      // 憑證上傳區塊
+                      const Align(alignment: Alignment.centerLeft, child: Text('上傳憑證 (照片/文件)', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13, fontWeight: FontWeight.bold))),
+                      const SizedBox(height: 8),
+                      if (attachedFiles.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: List.generate(attachedFiles.length, (i) {
+                              final file = attachedFiles[i];
+                              bool isImage = false;
+                              String? path;
+                              
+                              if (file is XFile) {
+                                isImage = true;
+                                path = file.path;
+                              } else if (file is PlatformFile) {
+                                isImage = ['png', 'jpg', 'jpeg'].contains(file.extension?.toLowerCase());
+                                path = file.path;
+                              }
+
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Container(
+                                    width: 64, height: 64,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF121824),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.white12),
+                                      image: isImage && path != null ? DecorationImage(image: FileImage(File(path)), fit: BoxFit.cover) : null,
+                                    ),
+                                    child: !isImage ? const Icon(Icons.insert_drive_file, color: Color(0xFF8A94A6)) : null,
+                                  ),
+                                  Positioned(
+                                    top: -6, right: -6,
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => attachedFiles.removeAt(i)),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2), 
+                                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), 
+                                        child: const Icon(Icons.close, color: Colors.white, size: 14)
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              );
+                            }),
+                          ),
+                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: const Color(0xFF1A2232),
+                                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                                  builder: (ctx2) => SafeArea(
+                                    child: Wrap(
+                                      children: [
+                                        ListTile(
+                                          leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
+                                          title: const Text('從相簿選擇', style: TextStyle(color: Colors.white)),
+                                          onTap: () async {
+                                            Navigator.pop(ctx2);
+                                            final images = await picker.pickMultiImage();
+                                            if (images.isNotEmpty) setState(() => attachedFiles.addAll(images));
+                                          },
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
+                                          title: const Text('拍照', style: TextStyle(color: Colors.white)),
+                                          onTap: () async {
+                                            Navigator.pop(ctx2);
+                                            final image = await picker.pickImage(source: ImageSource.camera);
+                                            if (image != null) setState(() => attachedFiles.add(image));
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.camera_alt_outlined, color: Color(0xFF8A94A6), size: 16),
+                              label: const Text('照片', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+                              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white12), padding: const EdgeInsets.symmetric(vertical: 12)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final result = await FilePicker.platform.pickFiles();
+                                if (result != null) setState(() => attachedFiles.addAll(result.files));
+                              },
+                              icon: const Icon(Icons.upload_file_outlined, color: Color(0xFF8A94A6), size: 16),
+                              label: const Text('文件', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+                              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white12), padding: const EdgeInsets.symmetric(vertical: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       _buildDialogTextField(notesController, '備註 (選填)', Icons.note_alt_outlined, maxLines: 3),
                     ],
                   ),
