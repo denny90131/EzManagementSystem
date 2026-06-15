@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Views/Authenticator/Login.dart';
 
 void main() {
@@ -13,6 +14,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('zh', 'TW'), // 繁體中文
+      ],
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -41,6 +50,45 @@ class MyApp extends StatelessWidget {
           backgroundColor: Color(0xFF121824), // 頂部導航列深色
           foregroundColor: Color(0xFFFFFFFF), // 白色標題
           elevation: 0,
+        ),
+        datePickerTheme: DatePickerThemeData(
+          backgroundColor: const Color(0xFF1A2232),
+          headerBackgroundColor: const Color(0xFF121824),
+          headerForegroundColor: const Color(0xFFE5BA73),
+          yearStyle: const TextStyle(color: Color(0xFFE5BA73)),
+          dayStyle: const TextStyle(color: Colors.white),
+          weekdayStyle: const TextStyle(color: Color(0xFF8A94A6)),
+          dayForegroundColor: WidgetStateColor.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return Colors.black;
+            if (states.contains(WidgetState.disabled)) return Colors.white30;
+            return Colors.white;
+          }),
+          dayBackgroundColor: WidgetStateColor.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return const Color(0xFFE5BA73);
+            return Colors.transparent;
+          }),
+          todayForegroundColor: WidgetStateColor.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return Colors.black;
+            return const Color(0xFFE5BA73);
+          }),
+          cancelButtonStyle: TextButton.styleFrom(foregroundColor: const Color(0xFF8A94A6)),
+          confirmButtonStyle: TextButton.styleFrom(foregroundColor: const Color(0xFFE5BA73)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        timePickerTheme: TimePickerThemeData(
+          backgroundColor: const Color(0xFF1A2232),
+          hourMinuteTextColor: Colors.white,
+          hourMinuteColor: const Color(0xFF121824),
+          dialBackgroundColor: const Color(0xFF121824),
+          dialHandColor: const Color(0xFFE5BA73),
+          dialTextColor: WidgetStateColor.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return Colors.black;
+            return Colors.white;
+          }),
+          entryModeIconColor: const Color(0xFFE5BA73),
+          cancelButtonStyle: TextButton.styleFrom(foregroundColor: const Color(0xFF8A94A6)),
+          confirmButtonStyle: TextButton.styleFrom(foregroundColor: const Color(0xFFE5BA73)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
       home: const LoginScreen(),

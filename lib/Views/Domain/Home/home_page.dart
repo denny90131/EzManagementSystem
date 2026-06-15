@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart'; // 🚀 引入 compute 所需套件
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../API/Authenticator_api.dart';
 import '../../../API/Subscribe_api.dart'; // 引入訂閱 API
@@ -24,6 +24,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   String _userName = '載入中...';
   String? _userPictureBase64;
+  Uint8List? _userPictureBytes; // 新增：存放解析完成的大頭貼位元組，避免 build 期間重複計算卡頓
   String? _userCompany;
   String? _userPosition;
   String? _userPhone;
@@ -32,6 +33,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<Map<String, dynamic>> _teamMembers = []; // 新增：團隊成員名單
   bool _isLoading = true; // 新增：控制載入中動畫狀態
   bool _isSubscribed = false; // 新增：追蹤團隊是否已訂閱
+  
+  String? _selectedTeamId; // 目前選擇的團隊 ID
+  List<Map<String, String>> _userTeams = [];
 
   late AnimationController _animationController;
   late Animation<double> _animation;
@@ -47,14 +51,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _userPosition = widget.userData!['position'];
       _userPhone = widget.userData!['phoneNumber'];
       
+      // 🚀 將單張圖片解析丟到 Event Loop 中延遲執行，避免阻塞 initState 造成轉場掉幀
+      if (_userPictureBase64 != null && _userPictureBase64!.isNotEmpty) {
+        Future(() {
+          try {
+            final bytes = base64Decode(_userPictureBase64!.split(',').last.replaceAll(RegExp(r'\s+'), ''));
+            if (mounted) setState(() => _userPictureBytes = bytes);
+          } catch (_) {}
+        });
+      }
+      
       // 讀取登入時一併抓好的資料完整度狀態
       if (widget.userData!['isProfileComplete'] != null) {
         _isProfileComplete = widget.userData!['isProfileComplete'];
       }
+      _fetchData(fetchUser: false); // 已有登入傳來的資料，初次載入省略請求個人 API
+    } else {
+      _fetchData(fetchUser: true); // 沒有初始資料，必須抓取
     }
     
-    // 無論有無傳入初始資料，都在背景執行一次以取得最新的「資料填寫進度狀態 (_isProfileComplete)」
-    _fetchData(); 
 
     // 初始化儀表板動畫 (預設 0%，待 API 抓回資料後再動態計算目標進度)
     _animationController = AnimationController(
@@ -72,81 +87,123 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
-  Future<void> _fetchData() async {
+  // 新增參數 fetchUser，用來控制是否需要呼叫 User 相關的 API
+  Future<void> _fetchData({bool fetchUser = true}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
-      
-      // ===== 新增：取得團隊成員資料 =====
       final activeTeamId = prefs.getString('active_team_uuid');
-      if (activeTeamId != null && activeTeamId.isNotEmpty) {
-        final members = await TeamApiService.getMemberTeam(activeTeamId);
-        
-        // 查詢當前團隊的訂閱狀態
-        final activePlan = await SubscriptionApiService.getActivePlan(activeTeamId);
-        final isSub = activePlan != null && activePlan.remainingDays > 0;
-        
-        if (mounted) {
-          setState(() {
-            _isSubscribed = isSub; // 記錄訂閱狀態
-            if (members != null) {
-              _teamMembers = members.map<Map<String, dynamic>>((m) {
-                final profile = m['profile'] ?? {};
-                final teamInfo = m['teamInfo'] ?? m['TeamInfo'] ?? {};
-                return {
-                  'name': profile['name'] ?? profile['Name'] ?? '未命名',
-                  'picture': profile['picture'] ?? profile['Picture'],
-                  'phone': profile['phoneNumber'] ?? profile['PhoneNumber'] ?? '無',
-                  'iceName': profile['iceName'] ?? profile['ICEName'] ?? '無',
-                  'icePhone': profile['icePhoneNumber'] ?? profile['ICEPhoneNumber'] ?? '無',
-                  'iceRelation': profile['iceRelation'] ?? profile['ICERelation'] ?? '',
-                  // 分開儲存團隊備註與個人備註
-                  'teamNote': teamInfo['note'] ?? teamInfo['Note'] ?? '', // 團隊專屬備註
-                  'personalNote': profile['note'] ?? profile['Note'] ?? '', // 個人基本資料備註
-                  'isWorking': false, // TODO: 未來串接真實派工狀態後替換
-                };
-              }).toList();
-            } else {
-              _teamMembers = [];
-            }
-            _updateAttendanceAnimation(); // 資料載入完畢，更新出勤率動畫
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _teamMembers = [];
-            _isSubscribed = false;
-            _updateAttendanceAnimation();
-          });
-        }
-      }
-      // ==============================
+      
+      // 1. 準備所有 API 請求 (此時不使用 await，讓它們不阻塞)
+      final hasTeam = activeTeamId != null && activeTeamId.isNotEmpty;
+      final membersFuture = hasTeam ? TeamApiService.getMemberTeam(activeTeamId) : Future.value(null);
+      final planFuture = hasTeam ? SubscriptionApiService.getActivePlan(activeTeamId) : Future.value(null);
+      
+      final shouldFetchUser = userId != null && fetchUser; // 根據參數決定是否發送使用者 API
+      final userFuture = shouldFetchUser ? ApiService.getUserById(userId) : Future.value(null);
+      final statusFuture = shouldFetchUser ? ApiService.getCompletionStatus(userId) : Future.value(null);
+      
+      final teamsFuture = userId != null ? SubscriptionApiService.getTeams(userId) : Future.value(null);
 
-      if (userId != null) {
-        final userData = await ApiService.getUserById(userId);
-        if (userData != null && userData['name'] != null) {
-          if (mounted) setState(() {
-            _fullUserData = userData;
+      // 2. 使用 Future.wait 平行發起所有請求 (大幅減少首頁轉圈圈的時間)
+      final results = await Future.wait([
+        membersFuture,
+        planFuture,
+        userFuture,
+        statusFuture,
+        teamsFuture, // 🚀 將團隊列表請求加入併發陣列
+      ]);
+
+      if (!mounted) return;
+
+      final members = results[0];
+      final activePlan = results[1];
+      final userData = results[2];
+      final status = results[3];
+      final teamsData = results[4]; // 取出團隊清單資料
+
+      // 🚀 將非同步的 await 移出 setState 之外
+      // 等待 compute 在背景把成員名單與 Base64 圖片都解析完畢
+      List<Map<String, dynamic>> parsedMembers = [];
+      if (hasTeam && members != null) {
+        parsedMembers = await compute(_parseTeamMembersInBackground, members as List);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        // 🚀 處理剛抓回來的團隊列表資料
+        if (teamsData != null) {
+          try {
+            final teamModels = teamsData as List<TeamModel>;
+            _userTeams = teamModels.map<Map<String, String>>((t) => {
+              'id': t.teamUUID,
+              'name': t.teamName.isNotEmpty ? t.teamName : '未命名團隊',
+            }).where((t) => t['id']!.isNotEmpty).toList();
+          } catch (e) {
+            debugPrint('解析團隊列表發生錯誤: $e');
+          }
+        }
+
+        // 防呆機制移到這裡：等真正的團隊資料解析完後，如果 activeTeamId 還是不在裡面才補上預設值
+        if (activeTeamId != null && activeTeamId.isNotEmpty && !_userTeams.any((t) => t['id'] == activeTeamId)) {
+          _userTeams.add({'id': activeTeamId, 'name': '目前團隊'});
+        }
+
+        _selectedTeamId = activeTeamId?.isEmpty == true ? null : activeTeamId;
+        
+        // 如果一開始未選擇過團隊但清單有資料，自動選中第一筆並抓取團隊資料
+        if (_selectedTeamId == null && _userTeams.isNotEmpty) {
+          _selectedTeamId = _userTeams.first['id'];
+          prefs.setString('active_team_uuid', _selectedTeamId!);
+          Future.microtask(() => _fetchData(fetchUser: false));
+        }
+
+        // ===== 處理團隊成員資料 =====
+        if (hasTeam) {
+          _isSubscribed = activePlan != null && (activePlan as dynamic).remainingDays > 0;
+          _teamMembers = parsedMembers; // 直接賦予已在背景運算完成的資料
+        } else {
+          _teamMembers = [];
+          _isSubscribed = false;
+        }
+        _updateAttendanceAnimation(); // 資料載入完畢，更新出勤率動畫
+
+        // ===== 處理使用者資料 =====
+        if (shouldFetchUser) {
+          if (userData != null && (userData as Map)['name'] != null) {
+            _fullUserData = userData as Map<String, dynamic>;
             _userName = userData['name'];
-            _userPictureBase64 = userData['picture']; // 取得大頭貼 Base64
+            _userPictureBase64 = userData['picture'];
             _userCompany = userData['company'];
             _userPosition = userData['position'];
             _userPhone = userData['phoneNumber'];
-          });
-          // 檢查資料填寫完整度
-          final status = await ApiService.getCompletionStatus(userId);
-          if (status != null && mounted) {
-            setState(() => _isProfileComplete = status['isComplete']);
+            
+            if (_userPictureBase64 != null && _userPictureBase64!.isNotEmpty) {
+              Future(() {
+                try {
+                  final bytes = base64Decode(_userPictureBase64!.split(',').last.replaceAll(RegExp(r'\s+'), ''));
+                  if (mounted) setState(() => _userPictureBytes = bytes);
+                } catch (_) {}
+              });
+            }
+          } else if (_userName == '載入中...') {
+            _userName = '使用者';
           }
-        } else {
-          if (mounted) setState(() => _userName = '使用者');
+          
+          if (status != null) {
+            _isProfileComplete = (status as Map)['isComplete'];
+          }
+        } else if (userId == null && _userName == '載入中...') {
+          _userName = '訪客';
         }
-      } else {
-        if (mounted) setState(() => _userName = '訪客');
-      }
+      });
     } catch (e) {
-      if (mounted) setState(() => _userName = '無法載入');
+      if (mounted) {
+        setState(() {
+          if (_userName == '載入中...') _userName = '無法載入';
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false); // 無論成功失敗，結束載入狀態
     }
@@ -179,7 +236,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           isProfileComplete: _isProfileComplete,
           fullUserData: _fullUserData,
           parentContext: parentContext,
-          onDataUpdated: _fetchData, // 傳入重新抓取資料的函式，當從編輯頁面返回時會觸發更新大頭貼
+          onDataUpdated: () => _fetchData(fetchUser: true), // 從編輯頁面返回時，強制重新抓取最新的 User API
         );
       },
     );
@@ -263,7 +320,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // 顯示員工詳細資訊的底部彈出視窗
   void _showEmployeeDetails(BuildContext context, Map<String, dynamic> member, bool isWorking) {
     String avatarChar = member['name'].toString().isNotEmpty ? member['name'].toString().substring(0, 1) : '?';
-    final pictureBase64 = member['picture']?.toString();
+    final Uint8List? pictureBytes = member['pictureBytes'];
     
     showModalBottomSheet(
       context: context,
@@ -284,10 +341,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     CircleAvatar(
                       radius: 32,
                       backgroundColor: isWorking ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                      backgroundImage: pictureBase64 != null && pictureBase64.isNotEmpty
-                          ? MemoryImage(base64Decode(pictureBase64.split(',').last.replaceAll(RegExp(r'\s+'), '')))
-                          : null,
-                      child: (pictureBase64 == null || pictureBase64.isEmpty) ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 20)) : null,
+                      backgroundImage: pictureBytes != null ? MemoryImage(pictureBytes) : null,
+                      child: pictureBytes == null ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 20)) : null,
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -358,11 +413,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    final weekdayStr = '星期${weekdays[today.weekday - 1]}';
-    final dateString = '${today.year}年${today.month}月${today.day}日 $weekdayStr';
-    
     // 動態計算當前出勤與空班人數
     final workingCount = _teamMembers.where((m) => m['isWorking'] == true).length;
     final idleCount = _teamMembers.length - workingCount;
@@ -381,20 +431,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               children: [
                 GestureDetector(
                   onTap: () => _showSettings(context),
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Stack(
                             children: [
                               CircleAvatar(
                                 radius: 24,
                                 backgroundColor: Colors.white.withOpacity(0.2),
-                                backgroundImage: _userPictureBase64 != null && _userPictureBase64!.isNotEmpty
-                                    ? MemoryImage(base64Decode(_userPictureBase64!))
-                                    : null,
-                                child: _userPictureBase64 == null || _userPictureBase64!.isEmpty
+                                backgroundImage: _userPictureBytes != null
+                                    ? MemoryImage(_userPictureBytes!) : null,
+                                child: _userPictureBytes == null
                                     ? const Icon(Icons.person, color: Colors.white, size: 28)
                                     : null,
                               ),
@@ -407,17 +457,84 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 ),
                             ],
                           ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Hi, $_userName', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${DateTime.now().year}年${DateTime.now().month}月${DateTime.now().day}日 星期${['一', '二', '三', '四', '五', '六', '日'][DateTime.now().weekday - 1]}',
+                                style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 13),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Text('Hi, $_userName', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-                          const SizedBox(height: 4),
-                          Text(dateString, style: const TextStyle(fontSize: 12, color: Color(0xFF8A94A6))),
-                        ],
+                      const SizedBox(height: 12),
+                      // 團隊下拉選單 (放置在頭貼與名字下方)
+                      IntrinsicWidth(
+                        child: PopupMenuButton<String>(
+                          initialValue: _selectedTeamId,
+                          offset: const Offset(0, 36), // 強制往下偏移，實現往下展開效果
+                          color: const Color(0xFF1E2532), // 深色選單卡片
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: const Color(0xFFE5BA73).withOpacity(0.3)),
+                          ),
+                          onSelected: (String? newValue) async {
+                            if (newValue != null && newValue != _selectedTeamId) {
+                              setState(() {
+                                _selectedTeamId = newValue;
+                                _isLoading = true; // 切換時顯示載入中動畫
+                              });
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setString('active_team_uuid', newValue);
+                              _fetchData(fetchUser: false); // 背景重新抓取該團隊資料
+                            }
+                          },
+                          itemBuilder: (BuildContext context) {
+                            return _userTeams.map((team) {
+                              final isSelected = team['id'] == _selectedTeamId;
+                              return PopupMenuItem<String>(
+                                value: team['id'],
+                                child: Text(
+                                  team['name']!,
+                                  style: TextStyle(
+                                    color: isSelected ? const Color(0xFFE5BA73) : Colors.white,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              );
+                            }).toList();
+                          },
+                          child: Container(
+                            height: 32,
+                            constraints: const BoxConstraints(minWidth: 160),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A2232),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _selectedTeamId != null 
+                                      ? (_userTeams.firstWhere((t) => t['id'] == _selectedTeamId, orElse: () => {'name': '選擇團隊'})['name'] ?? '選擇團隊') 
+                                      : '選擇團隊',
+                                    style: const TextStyle(fontSize: 13, color: Color(0xFFE5BA73), fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.keyboard_arrow_down, color: Color(0xFFE5BA73), size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -463,7 +580,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           // 滾動內容區 (儀表板、蜂巢圖、清單等)
           Expanded(
             child: RefreshIndicator(
-              onRefresh: _fetchData,
+              onRefresh: () => _fetchData(fetchUser: true), // 使用者下拉更新時，強制重新抓取所有的 API
               color: const Color(0xFFE5BA73), // 金色轉圈圈
               backgroundColor: const Color(0xFF1A2232),
               child: SingleChildScrollView(
@@ -576,7 +693,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           final member = _teamMembers[index];
                           final isWorking = member['isWorking'] == true;
                           String avatarChar = member['name'].toString().isNotEmpty ? member['name'].toString().substring(0, 1) : '?';
-                          final pictureBase64 = member['picture']?.toString();
+                          final Uint8List? pictureBytes = member['pictureBytes'];
                           
                           return GestureDetector(
                             onTap: () => _showEmployeeDetails(context, member, isWorking),
@@ -593,10 +710,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   CircleAvatar(
                                     radius: 20,
                                     backgroundColor: isWorking ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                                    backgroundImage: pictureBase64 != null && pictureBase64.isNotEmpty
-                                        ? MemoryImage(base64Decode(pictureBase64.split(',').last.replaceAll(RegExp(r'\s+'), '')))
-                                        : null,
-                                    child: (pictureBase64 == null || pictureBase64.isEmpty) ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)) : null,
+                                    backgroundImage: pictureBytes != null ? MemoryImage(pictureBytes) : null,
+                                    child: pictureBytes == null ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)) : null,
                                   ),
                                   const SizedBox(width: 12),
                                   Column(
@@ -678,6 +793,33 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ),
       );
   }
+}
+
+// 🚀 放在檔案最底部的頂層函數，專門用來在背景 Isolate 處理耗時的 List 與 Base64 轉換
+List<Map<String, dynamic>> _parseTeamMembersInBackground(List<dynamic> members) {
+  return members.map<Map<String, dynamic>>((m) {
+    final profile = m['profile'] ?? {};
+    final teamInfo = m['teamInfo'] ?? m['TeamInfo'] ?? {};
+    
+    Uint8List? picBytes;
+    final picStr = profile['picture'] ?? profile['Picture'];
+    if (picStr != null && picStr.toString().isNotEmpty) {
+      try { picBytes = base64Decode(picStr.toString().split(',').last.replaceAll(RegExp(r'\s+'), '')); } catch (_) {}
+    }
+
+    return {
+      'name': profile['name'] ?? profile['Name'] ?? '未命名',
+      'picture': profile['picture'] ?? profile['Picture'],
+      'pictureBytes': picBytes, // 存入已解析的圖片
+      'phone': profile['phoneNumber'] ?? profile['PhoneNumber'] ?? '無',
+      'iceName': profile['iceName'] ?? profile['ICEName'] ?? '無',
+      'icePhone': profile['icePhoneNumber'] ?? profile['ICEPhoneNumber'] ?? '無',
+      'iceRelation': profile['iceRelation'] ?? profile['ICERelation'] ?? '',
+      'teamNote': teamInfo['note'] ?? teamInfo['Note'] ?? '', 
+      'personalNote': profile['note'] ?? profile['Note'] ?? '',
+      'isWorking': false,
+    };
+  }).toList();
 }
 
 // --- 汽車儀表板風格出勤率 ---

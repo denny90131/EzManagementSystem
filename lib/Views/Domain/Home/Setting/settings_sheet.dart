@@ -68,23 +68,15 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     if (!mounted) return;
     setState(() => _isLoadingTeams = true);
     try {
-      final teamsData = await TeamApiService.getTeamByMember(_userId!);
+      final teamsData = await SubscriptionApiService.getTeams(_userId!);
       if (!mounted) return;
       
       setState(() {
         // 過濾掉 UUID 為空的異常資料，避免 DropdownButton 崩潰
-        final validTeams = teamsData?.where((t) {
-          final uuid = t['teamUUID'] ?? t['TeamUUID'];
-          return uuid != null && uuid.toString().isNotEmpty;
-        }).toList() ?? [];
-        
-        _teams = validTeams.map<Map<String, dynamic>>((t) {
-          final uuid = (t['teamUUID'] ?? t['TeamUUID']).toString();
-          final name = (t['teamName'] ?? t['TeamName'])?.toString() ?? '';
-          return {
-            'TeamUUID': uuid,
-            'TeamName': name.isNotEmpty ? name : '未命名團隊',
-          };
+        final validTeams = teamsData?.where((t) => t.teamUUID.isNotEmpty).toList() ?? [];
+        _teams = validTeams.map<Map<String, dynamic>>((t) => {
+          'TeamUUID': t.teamUUID,
+          'TeamName': t.teamName.isNotEmpty ? t.teamName : '未命名團隊',
         }).toList();
         
         if (_teams.isNotEmpty) {
@@ -362,7 +354,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                                 gradient: const LinearGradient(colors: [Color(0xFFE5BA73), Color(0xFFC19A5B)]),
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: Text('剩餘 ${_activePlan!.remainingDays.ceil()} 天', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
+                              child: Text('剩餘 ${_activePlan!.remainingDays.toInt()} 天', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
                             )
                           else
                             Container(

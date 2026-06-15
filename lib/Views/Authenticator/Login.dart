@@ -41,12 +41,17 @@ class _LoginScreenState extends State<LoginScreen> {
     // 檢查是否有儲存 user_id (代表上次未登出)
     if (userId != null && userId.isNotEmpty) {
       try {
-        final userData = await ApiService.getUserById(userId);
-        final status = await ApiService.getCompletionStatus(userId);
+        // 使用 Future.wait 平行發送請求，減少等待時間
+        final results = await Future.wait([
+          ApiService.getUserById(userId),
+          ApiService.getCompletionStatus(userId),
+        ]);
+        final userData = results[0];
+        final status = results[1];
         if (!mounted) return;
         if (userData != null) {
           if (status != null) {
-            userData['isProfileComplete'] = status['isComplete']; // 將進度狀態塞入 userData
+            userData['isProfileComplete'] = (status as Map)['isComplete']; // 將進度狀態塞入 userData
           }
           Navigator.pushReplacement(
             context,
@@ -100,13 +105,17 @@ class _LoginScreenState extends State<LoginScreen> {
           // 登入成功後，根據「記住我」的狀態來儲存或清除本機帳密
           final prefs = await SharedPreferences.getInstance();
           if (_rememberMe) {
-            await prefs.setString('saved_phone', phoneController.text.trim());
-            await prefs.setString('saved_password', passwordController.text.trim());
-            await prefs.setBool('remember_me', true);
+            await Future.wait([
+              prefs.setString('saved_phone', phoneController.text.trim()),
+              prefs.setString('saved_password', passwordController.text.trim()),
+              prefs.setBool('remember_me', true),
+            ]);
           } else {
-            await prefs.remove('saved_phone');
-            await prefs.remove('saved_password');
-            await prefs.setBool('remember_me', false);
+            await Future.wait([
+              prefs.remove('saved_phone'),
+              prefs.remove('saved_password'),
+              prefs.setBool('remember_me', false),
+            ]);
           }
 
           // 儲存 user_id 以供後續 API (如編輯個人資料) 使用
@@ -117,13 +126,16 @@ class _LoginScreenState extends State<LoginScreen> {
             await prefs.setString('user_id', uid);
             
             // 確定取得最完整的資料與進度後再進入主畫面
-            final fetchedData = await ApiService.getUserById(uid);
-            if (fetchedData != null) {
-              fullUserData = fetchedData;
+            // 使用 Future.wait 平行發送請求，大幅縮短進入主畫面前的 API 等待時間
+            final results = await Future.wait([
+              ApiService.getUserById(uid),
+              ApiService.getCompletionStatus(uid),
+            ]);
+            if (results[0] != null && results[0] is Map) {
+              fullUserData = Map<String, dynamic>.from(results[0] as Map);
             }
-            final status = await ApiService.getCompletionStatus(uid);
-            if (status != null) {
-              fullUserData['isProfileComplete'] = status['isComplete'];
+            if (results[1] != null && results[1] is Map) {
+              fullUserData['isProfileComplete'] = (results[1] as Map)['isComplete'];
             }
           }
           
