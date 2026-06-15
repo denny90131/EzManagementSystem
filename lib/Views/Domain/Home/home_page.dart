@@ -652,10 +652,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHoneycombStat('今日工地', '3', const Color(0xFFE5BA73)),
-                        _buildHoneycombStat('總員工', '${_teamMembers.length}', Colors.blue.shade100),
-                        _buildHoneycombStat('今日出工', '$workingCount', Colors.greenAccent),
-                        _buildHoneycombStat('今日空班', '$idleCount', Colors.redAccent),
+                        // 數值目前為假資料，待 API 完成後可替換為真實變數
+                        _buildHoneycombStat('總工地', '12', const Color(0xFFE5BA73)),
+                        _buildHoneycombStat('今日工地', '3', Colors.blue.shade100),
+                        _buildHoneycombStat('總派工', '45', Colors.greenAccent),
+                        _buildHoneycombStat('總回報', '18', Colors.redAccent),
                       ],
                     ),
                   ),
@@ -671,7 +672,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 children: [
               
               // 5. 員工狀態 (待命/工作中)
-              const Text('員工狀態', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text('員工狀態', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text('$workingCount / ${_teamMembers.length} ', style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 14, fontWeight: FontWeight.bold)),
+                ],
+              ),
               const SizedBox(height: 16),
               _isLoading
                   ? const SizedBox(

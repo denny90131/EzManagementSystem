@@ -14,7 +14,6 @@ class CaseDetailPage extends StatefulWidget {
 
 class _CaseDetailPageState extends State<CaseDetailPage> {
   int _currentTab = 0; // 0: 會議紀錄, 1: 現況照, 2: 3D模擬圖, 3: 施工圖, 4: 材質表, 5: 設備表
-  int _recordTab = 0; // 0: 公開紀錄, 1: 非公開紀錄
   final ImagePicker _picker = ImagePicker(); // 圖片選擇器器實例
 
   // 模擬工地詳細資料
@@ -47,7 +46,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   // 模擬會議紀錄資料
   final List<Map<String, dynamic>> _mockRecords = [
     {
-      'id': '1',
+      'id': '1_pub',
       'date': '2023-11-20 14:30',
       'creator': '李老闆 (發包)',
       'content': '現場確認空調管線走線方向，需避開主樑。已與水電師傅確認過。',
@@ -58,7 +57,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
       'images': [],
     },
     {
-      'id': '2',
+      'id': '2_priv',
       'date': '2023-11-19 10:15',
       'creator': '內部備註',
       'content': '業主變更設計，需追加費用約 3,000 元，請盡快報價。',
@@ -69,6 +68,128 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
       'images': [],
     },
   ];
+
+  Widget _buildRecordItem(int originalIndex, Map<String, dynamic> record) {
+    final isPrivate = record['isPrivate'] as bool;
+    final isDeleted = record['isDeleted'] as bool;
+
+    if (isDeleted) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.delete_outline, color: Color(0xFF8A94A6), size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text('此紀錄已於 ${record['deletedAt']} 由 ${record['deletedBy']} 刪除', style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 13))),
+            TextButton(
+              onPressed: () => _restoreRecord(originalIndex),
+              child: const Text('復原', style: TextStyle(color: Color(0xFFE5BA73))),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isPrivate ? Icons.visibility_off_outlined : Icons.person_outline, 
+                    size: 16, 
+                    color: isPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6)
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    record['creator'], 
+                    style: TextStyle(
+                      color: isPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Text(record['date'], style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
+                  const SizedBox(width: 4),
+                  // 編輯/刪除彈出選單
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Color(0xFF8A94A6), size: 18),
+                    color: const Color(0xFF1E2532),
+                    offset: const Offset(0, 30),
+                    onSelected: (val) {
+                      if (val == 'edit') _showAddRecordBottomSheet(context, editIndex: originalIndex);
+                      else if (val == 'delete') _deleteRecord(originalIndex);
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'edit', child: Text('編輯', style: TextStyle(color: Colors.white))),
+                      const PopupMenuItem(value: 'delete', child: Text('刪除', style: TextStyle(color: Colors.redAccent))),
+                    ],
+                  ),
+                ],
+              )
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isPrivate ? const Color(0xFFE5BA73).withOpacity(0.1) : const Color(0xFF121824),
+              borderRadius: BorderRadius.circular(12),
+              border: isPrivate ? Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3)) : Border.all(color: Colors.white.withOpacity(0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(record['content'], style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6)),
+                // 顯示紀錄夾帶的圖片縮圖
+                if (record['images'] != null && (record['images'] as List).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate((record['images'] as List).length, (imgIndex) {
+                        final img = record['images'][imgIndex];
+                        ImageProvider imgProvider;
+                        if (img is XFile) {
+                          imgProvider = FileImage(File(img.path));
+                        } else {
+                          imgProvider = const AssetImage('assets/images/placeholder.png'); // 備用示意圖
+                        }
+                        return GestureDetector(
+                          onTap: () => _openFullScreenGallery(originalIndex, imgIndex), // 點擊開啟全螢幕
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: imgProvider, fit: BoxFit.cover)),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+              ],
+            )
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildTab(int index, String title) {
     bool isSelected = _currentTab == index;
@@ -158,11 +279,31 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
 
   // 顯示新增/編輯紀錄的下拉式 BottomSheet
   void _showAddRecordBottomSheet(BuildContext context, {int? editIndex}) {
-    final existingRecord = editIndex != null ? _mockRecords[editIndex] : null;
-    // 如果是新增，預設隱私狀態跟隨當前切換的 Tab
-    bool isPrivate = existingRecord?['isPrivate'] ?? (_recordTab == 1);
-    TextEditingController contentController = TextEditingController(text: existingRecord?['content'] ?? '');
-    List<dynamic> attachedImages = List.from(existingRecord?['images'] ?? []);
+    String? baseId;
+    Map<String, dynamic>? pubRecord;
+    Map<String, dynamic>? privRecord;
+
+    // 如果是編輯模式，利用 baseId 同時找出成對的公開與非公開紀錄
+    if (editIndex != null) {
+      final existingRecord = _mockRecords[editIndex];
+      String currentId = existingRecord['id'];
+      if (currentId.endsWith('_pub') || currentId.endsWith('_priv')) {
+        baseId = currentId.substring(0, currentId.length - 4);
+        int pubIndex = _mockRecords.indexWhere((r) => r['id'] == '${baseId}_pub');
+        int privIndex = _mockRecords.indexWhere((r) => r['id'] == '${baseId}_priv');
+        if (pubIndex != -1) pubRecord = _mockRecords[pubIndex];
+        if (privIndex != -1) privRecord = _mockRecords[privIndex];
+      } else {
+        baseId = currentId;
+        if (existingRecord['isPrivate'] == true) privRecord = existingRecord;
+        else pubRecord = existingRecord;
+      }
+    }
+
+    TextEditingController publicContentController = TextEditingController(text: pubRecord?['content'] ?? '');
+    TextEditingController privateContentController = TextEditingController(text: privRecord?['content'] ?? '');
+    List<dynamic> publicAttachedImages = List.from(pubRecord?['images'] ?? []);
+    List<dynamic> privateAttachedImages = List.from(privRecord?['images'] ?? []);
 
     showModalBottomSheet(
       context: context,
@@ -174,21 +315,23 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
-            // 處理附加圖片 (支援多選或拍照)
-            Future<void> _pickRecordImages(ImageSource source) async {
+            // 處理附加圖片 (支援多選或拍照)，並透過 isPrivate 參數決定放入哪一個列表
+            Future<void> _pickRecordImages(ImageSource source, bool isPrivate) async {
               try {
                 if (source == ImageSource.gallery) {
                   final List<XFile> images = await _picker.pickMultiImage();
                   if (images.isNotEmpty) {
                     setModalState(() {
-                      attachedImages.addAll(images);
+                      if (isPrivate) privateAttachedImages.addAll(images);
+                      else publicAttachedImages.addAll(images);
                     });
                   }
                 } else {
                   final XFile? image = await _picker.pickImage(source: source);
                   if (image != null) {
                     setModalState(() {
-                      attachedImages.add(image);
+                      if (isPrivate) privateAttachedImages.add(image);
+                      else publicAttachedImages.add(image);
                     });
                   }
                 }
@@ -197,8 +340,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
               }
             }
 
-            // 顯示圖片來源選擇彈窗
-            void _showImageSource() {
+            void _showImageSource(bool isPrivate) {
               showModalBottomSheet(
                 context: context,
                 backgroundColor: const Color(0xFF1A2232),
@@ -210,12 +352,12 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                         ListTile(
                           leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
                           title: const Text('從相簿選擇 (可多選)', style: TextStyle(color: Colors.white)),
-                          onTap: () { Navigator.pop(ctx2); _pickRecordImages(ImageSource.gallery); },
+                          onTap: () { Navigator.pop(ctx2); _pickRecordImages(ImageSource.gallery, isPrivate); },
                         ),
                         ListTile(
                           leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
                           title: const Text('拍照', style: TextStyle(color: Colors.white)),
-                          onTap: () { Navigator.pop(ctx2); _pickRecordImages(ImageSource.camera); },
+                          onTap: () { Navigator.pop(ctx2); _pickRecordImages(ImageSource.camera, isPrivate); },
                         ),
                       ],
                     ),
@@ -248,26 +390,52 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                           Text(editIndex != null ? '編輯紀錄' : '新增紀錄', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                           TextButton(
                             onPressed: () {
-                              if (contentController.text.trim().isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請輸入內容')));
+                              if (publicContentController.text.trim().isEmpty && privateContentController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請至少輸入一項內容')));
                                 return;
                               }
                               setState(() {
+                                final now = DateTime.now();
+                                final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                                
+                                String newBaseId = baseId ?? now.millisecondsSinceEpoch.toString();
+                                String originalDate = pubRecord?['date'] ?? privRecord?['date'] ?? dateStr;
+                                String originalCreator = pubRecord?['creator'] ?? privRecord?['creator'] ?? '當前使用者';
+                                
+                                int insertIndex = 0;
                                 if (editIndex != null) {
-                                  _mockRecords[editIndex]['content'] = contentController.text;
-                                  _mockRecords[editIndex]['isPrivate'] = isPrivate;
-                                  _mockRecords[editIndex]['images'] = attachedImages;
-                                } else {
-                                  _mockRecords.insert(0, {
-                                    'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                                    'date': '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')} ${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
-                                    'creator': '當前使用者', // 應替換為真實使用者
-                                    'content': contentController.text,
-                                    'isPrivate': isPrivate,
+                                  insertIndex = _mockRecords.indexWhere((r) => r['id'] == pubRecord?['id'] || r['id'] == privRecord?['id']);
+                                  if (insertIndex == -1) insertIndex = 0;
+                                  
+                                  // 移除原本的紀錄 (將公開與非公開的舊資料一併移除)
+                                  _mockRecords.removeWhere((r) => r['id'] == pubRecord?['id'] || r['id'] == privRecord?['id']);
+                                }
+                                
+                                // 插入新的紀錄
+                                if (privateContentController.text.trim().isNotEmpty) {
+                                  _mockRecords.insert(insertIndex, {
+                                    'id': '${newBaseId}_priv',
+                                    'date': originalDate,
+                                    'creator': originalCreator,
+                                    'content': privateContentController.text.trim(),
+                                    'isPrivate': true,
                                     'isDeleted': false,
                                     'deletedBy': '',
                                     'deletedAt': '',
-                                    'images': attachedImages,
+                                    'images': List.from(privateAttachedImages),
+                                  });
+                                }
+                                if (publicContentController.text.trim().isNotEmpty) {
+                                  _mockRecords.insert(insertIndex, {
+                                    'id': '${newBaseId}_pub',
+                                    'date': originalDate,
+                                    'creator': originalCreator,
+                                    'content': publicContentController.text.trim(),
+                                    'isPrivate': false,
+                                    'isDeleted': false,
+                                    'deletedBy': '',
+                                    'deletedAt': '',
+                                    'images': List.from(publicAttachedImages),
                                   });
                                 }
                               });
@@ -280,37 +448,21 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                       ),
                       const SizedBox(height: 16),
                       
-                      // 隱私設定 (將原本的雙區域改為切換開關，更符合現代設計且利於附加多圖)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      // 公開紀錄區塊
+                      const Row(
                         children: [
-                          Row(
-                            children: [
-                              Icon(isPrivate ? Icons.visibility_off_outlined : Icons.public, color: isPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6)),
-                              const SizedBox(width: 8),
-                              Text(isPrivate ? '此紀錄為非公開 (僅內部可見)' : '此紀錄為公開 (所有人可見)', style: TextStyle(color: isPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), fontSize: 14)),
-                            ],
-                          ),
-                          Switch(
-                            value: isPrivate,
-                            activeColor: const Color(0xFFE5BA73),
-                            onChanged: (val) {
-                              setModalState(() {
-                                isPrivate = val;
-                              });
-                            },
-                          ),
+                          Icon(Icons.public, color: Color(0xFF8A94A6), size: 18),
+                          SizedBox(width: 8),
+                          Text('公開紀錄 (業主與所有人可見)', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 14, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      const SizedBox(height: 12),
-
-                      // 內容輸入
+                      const SizedBox(height: 8),
                       TextField(
-                        controller: contentController,
-                        maxLines: 4,
+                        controller: publicContentController,
+                        maxLines: 3,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          hintText: '請輸入會議或備註內容...',
+                          hintText: '請輸入公開的會議或備註內容...',
                           hintStyle: const TextStyle(color: Colors.white30),
                           filled: true,
                           fillColor: const Color(0xFF121824),
@@ -318,48 +470,28 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
                         ),
                       ),
-                      const SizedBox(height: 16),
                       
-                      // 圖片縮圖列表
-                      if (attachedImages.isNotEmpty)
+                      // 圖片縮圖列表 (公開)
+                      if (publicAttachedImages.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.only(top: 12, bottom: 12),
                           child: Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: List.generate(attachedImages.length, (i) {
-                              final img = attachedImages[i];
-                              ImageProvider provider;
-                              if (img is XFile) {
-                                provider = FileImage(File(img.path));
-                              } else {
-                                provider = const AssetImage('assets/images/placeholder.png'); // 備用圖
-                              }
+                            children: List.generate(publicAttachedImages.length, (i) {
+                              final img = publicAttachedImages[i];
+                              ImageProvider provider = img is XFile ? FileImage(File(img.path)) : const AssetImage('assets/images/placeholder.png');
                               return Stack(
                                 children: [
                                   Container(
-                                    width: 72,
-                                    height: 72,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      image: DecorationImage(image: provider, fit: BoxFit.cover),
-                                    ),
+                                    width: 72, height: 72,
+                                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: provider, fit: BoxFit.cover)),
                                   ),
-                                  // 移除圖片按鈕
                                   Positioned(
-                                    top: 0,
-                                    right: 0,
+                                    top: 0, right: 0,
                                     child: GestureDetector(
-                                      onTap: () {
-                                        setModalState(() {
-                                          attachedImages.removeAt(i);
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                                        child: const Icon(Icons.close, color: Colors.white, size: 16),
-                                      ),
+                                      onTap: () => setModalState(() => publicAttachedImages.removeAt(i)),
+                                      child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, color: Colors.white, size: 16)),
                                     ),
                                   )
                                 ],
@@ -367,14 +499,80 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             }),
                           ),
                         ),
-
-                      // 附加圖片按鈕
+                      const SizedBox(height: 12),
+                      
                       OutlinedButton.icon(
-                        onPressed: _showImageSource,
+                        onPressed: () => _showImageSource(false),
                         icon: const Icon(Icons.image_outlined, color: Color(0xFF8A94A6)),
-                        label: const Text('附加圖片', style: TextStyle(color: Color(0xFF8A94A6))),
+                        label: const Text('附加公開照片', style: TextStyle(color: Color(0xFF8A94A6))),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          minimumSize: const Size(double.infinity, 0),
+                          side: const BorderSide(color: Colors.white12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // 非公開紀錄區塊
+                      const Row(
+                        children: [
+                          Icon(Icons.visibility_off_outlined, color: Color(0xFFE5BA73), size: 18),
+                          SizedBox(width: 8),
+                          Text('非公開紀錄 (僅內部團隊可見)', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 14, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: privateContentController,
+                        maxLines: 3,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: '請輸入內部私下備註內容...',
+                          hintStyle: const TextStyle(color: Colors.white30),
+                          filled: true,
+                          fillColor: const Color(0xFF121824),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+                        ),
+                      ),
+                      
+                      // 圖片縮圖列表 (非公開)
+                      if (privateAttachedImages.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 12),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: List.generate(privateAttachedImages.length, (i) {
+                              final img = privateAttachedImages[i];
+                              ImageProvider provider = img is XFile ? FileImage(File(img.path)) : const AssetImage('assets/images/placeholder.png');
+                              return Stack(
+                                children: [
+                                  Container(
+                                    width: 72, height: 72,
+                                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: provider, fit: BoxFit.cover)),
+                                  ),
+                                  Positioned(
+                                    top: 0, right: 0,
+                                    child: GestureDetector(
+                                      onTap: () => setModalState(() => privateAttachedImages.removeAt(i)),
+                                      child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, color: Colors.white, size: 16)),
+                                    ),
+                                  )
+                                ],
+                              );
+                            }),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      
+                      OutlinedButton.icon(
+                        onPressed: () => _showImageSource(true),
+                        icon: const Icon(Icons.image_outlined, color: Color(0xFF8A94A6)),
+                        label: const Text('附加非公開照片', style: TextStyle(color: Color(0xFF8A94A6))),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size(double.infinity, 0),
                           side: const BorderSide(color: Colors.white12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -815,211 +1013,66 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 color: const Color(0xFF1A2232),
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Column(
-                children: [
-                  // --- 公開/非公開 切換區塊 ---
-                  Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _recordTab = 0),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: _recordTab == 0 ? const Color(0xFFE5BA73).withOpacity(0.15) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text('公開紀錄', style: TextStyle(color: _recordTab == 0 ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _recordTab = 1),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: _recordTab == 1 ? const Color(0xFFE5BA73).withOpacity(0.15) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              alignment: Alignment.center,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.visibility_off_outlined, size: 16, color: _recordTab == 1 ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6)),
-                                  const SizedBox(width: 4),
-                                  Text('非公開 (內部)', style: TextStyle(color: _recordTab == 1 ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1, color: Colors.white12),
-                  
-                  // --- 紀錄清單 ---
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        // 根據 _recordTab 過濾，並保留原始 index
-                        final filteredRecords = _mockRecords.asMap().entries.where((entry) {
-                          final isPrivate = entry.value['isPrivate'] == true;
-                          return _recordTab == 0 ? !isPrivate : isPrivate;
-                        }).toList();
+              child: Builder(
+                builder: (context) {
+                  final publicRecords = _mockRecords.asMap().entries.where((e) => e.value['isPrivate'] == false).toList();
+                  final privateRecords = _mockRecords.asMap().entries.where((e) => e.value['isPrivate'] == true).toList();
 
-                        if (filteredRecords.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.assignment_outlined, size: 48, color: const Color(0xFF8A94A6).withOpacity(0.5)),
-                                const SizedBox(height: 16),
-                                Text(_recordTab == 0 ? '目前尚無公開紀錄' : '目前尚無內部非公開紀錄', style: const TextStyle(color: Color(0xFF8A94A6))),
-                              ],
-                            ),
-                          );
-                        }
-
-                        return ClipRRect(
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                          child: ListView.separated(
-                            padding: const EdgeInsets.all(20),
-                            itemCount: filteredRecords.length,
-                            separatorBuilder: (context, index) => const Divider(height: 32, color: Colors.white12),
-                            itemBuilder: (context, index) {
-                              final originalIndex = filteredRecords[index].key;
-                              final record = filteredRecords[index].value;
-                              final isPrivate = record['isPrivate'] as bool;
-                              final isDeleted = record['isDeleted'] as bool;
-
-                          if (isDeleted) {
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white12),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.delete_outline, color: Color(0xFF8A94A6), size: 20),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: Text('此紀錄已於 ${record['deletedAt']} 由 ${record['deletedBy']} 刪除', style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 13))),
-                                  TextButton(
-                                    onPressed: () => _restoreRecord(originalIndex),
-                                    child: const Text('復原', style: TextStyle(color: Color(0xFFE5BA73))),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // --- 公開紀錄區塊 ---
+                          const Row(
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        isPrivate ? Icons.visibility_off_outlined : Icons.person_outline, 
-                                        size: 16, 
-                                        color: isPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6)
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        record['creator'], 
-                                        style: TextStyle(
-                                          color: isPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), 
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      Text(record['date'], style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
-                                      const SizedBox(width: 4),
-                                      // 編輯/刪除彈出選單
-                                      PopupMenuButton<String>(
-                                        icon: const Icon(Icons.more_vert, color: Color(0xFF8A94A6), size: 18),
-                                        color: const Color(0xFF1E2532),
-                                        offset: const Offset(0, 30),
-                                        onSelected: (val) {
-                                          if (val == 'edit') _showAddRecordBottomSheet(context, editIndex: originalIndex);
-                                          else if (val == 'delete') _deleteRecord(originalIndex);
-                                        },
-                                        itemBuilder: (context) => [
-                                          const PopupMenuItem(value: 'edit', child: Text('編輯', style: TextStyle(color: Colors.white))),
-                                          const PopupMenuItem(value: 'delete', child: Text('刪除', style: TextStyle(color: Colors.redAccent))),
-                                        ],
-                                      ),
-                                    ],
-                                  )
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: isPrivate ? const Color(0xFFE5BA73).withOpacity(0.1) : const Color(0xFF121824),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: isPrivate ? Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3)) : Border.all(color: Colors.white.withOpacity(0.05)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(record['content'], style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6)),
-                                    // 顯示紀錄夾帶的圖片縮圖
-                                    if (record['images'] != null && (record['images'] as List).isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 12.0),
-                                        child: Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: List.generate((record['images'] as List).length, (imgIndex) {
-                                            final img = record['images'][imgIndex];
-                                            ImageProvider imgProvider;
-                                            if (img is XFile) {
-                                              imgProvider = FileImage(File(img.path));
-                                            } else {
-                                              imgProvider = const AssetImage('assets/images/placeholder.png'); // 備用示意圖
-                                            }
-                                            return GestureDetector(
-                                              onTap: () => _openFullScreenGallery(originalIndex, imgIndex), // 點擊開啟全螢幕
-                                              child: Container(
-                                                width: 60,
-                                                height: 60,
-                                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: imgProvider, fit: BoxFit.cover)),
-                                              ),
-                                            );
-                                          }),
-                                        ),
-                                      ),
-                                  ],
-                                )
-                              ),
+                              Icon(Icons.public, color: Color(0xFF8A94A6), size: 20),
+                              SizedBox(width: 8),
+                              Text('公開紀錄', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 16, fontWeight: FontWeight.bold)),
                             ],
-                          );
-                        },
+                          ),
+                          const SizedBox(height: 16),
+                          if (publicRecords.isEmpty)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24.0),
+                                child: Text('目前尚無公開紀錄', style: TextStyle(color: Color(0xFF8A94A6))),
+                              ),
+                            )
+                          else
+                            ...publicRecords.map((e) => _buildRecordItem(e.key, e.value)).toList(),
+
+                          const Divider(height: 48, color: Colors.white12),
+
+                          // --- 非公開紀錄區塊 ---
+                          const Row(
+                            children: [
+                              Icon(Icons.visibility_off_outlined, color: Color(0xFFE5BA73), size: 20),
+                              SizedBox(width: 8),
+                              Text('非公開紀錄 (內部)', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          if (privateRecords.isEmpty)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24.0),
+                                child: Text('目前尚無內部非公開紀錄', style: TextStyle(color: Color(0xFF8A94A6))),
+                              ),
+                            )
+                          else
+                            ...privateRecords.map((e) => _buildRecordItem(e.key, e.value)).toList(),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-      const SizedBox(height: 16),
+          const SizedBox(height: 16),
         ],
       ),
       // 4. 底部固定操作欄

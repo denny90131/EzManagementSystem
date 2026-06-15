@@ -522,13 +522,6 @@ class _ReportPageState extends State<ReportPage> {
         children: [
           // 打卡區塊
           _buildClockInCard(),
-          
-          const Text('工地進度與照片回傳', style: TextStyle(fontSize: 16, color: Color(0xFF8A94A6), fontWeight: FontWeight.w500)),
-          const SizedBox(height: 24),
-          _buildSummaryRow('等待回報', '3', Icons.schedule),
-          _buildSummaryRow('已上傳照片', '18', Icons.photo_library_outlined),
-          _buildSummaryRow('需要老闆確認', '2', Icons.verified_outlined),
-          
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
