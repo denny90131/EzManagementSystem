@@ -16,6 +16,10 @@ class _ReportPageState extends State<ReportPage> {
   DateTime? _clockInTime; // 記錄上班打卡時間
   DateTime? _clockOutTime; // 記錄下班打卡時間
 
+  String? _selectedSiteForClockIn; // 新增：記錄選擇的打卡工地
+  // 模擬工地列表 (未來可改由 API 取得該使用者的派工清單)
+  final List<String> _availableSites = ['中山區辦公大樓空調維護', '信義區百貨管線重整', '大安區豪宅裝潢工程'];
+
   Widget _buildSummaryRow(String label, String value, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16.0),
@@ -103,10 +107,35 @@ class _ReportPageState extends State<ReportPage> {
             ],
           ),
           const SizedBox(height: 16),
+        
+        // 新增打卡工地選擇下拉選單
+        DropdownButtonFormField<String>(
+          value: _selectedSiteForClockIn,
+          dropdownColor: const Color(0xFF1A2232),
+          // 已經打卡後，就不允許更改工地
+          onChanged: _clockInTime == null ? (val) => setState(() => _selectedSiteForClockIn = val) : null,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: '選擇打卡工地',
+            labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
+            prefixIcon: const Icon(Icons.domain_outlined, color: Color(0xFF8A94A6)),
+            filled: true,
+            fillColor: const Color(0xFF121824),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+          ),
+          items: _availableSites.map((String site) => DropdownMenuItem<String>(value: site, child: Text(site))).toList(),
+        ),
+        const SizedBox(height: 16),
+
           Row(
             children: [
               Expanded(
                 child: _buildClockButton(title: '上班打卡', time: _clockInTime, icon: Icons.login, color: Colors.greenAccent, onTap: _clockInTime == null ? () {
+                  if (_selectedSiteForClockIn == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請先選擇打卡工地！')));
+                    return;
+                  }
                     setState(() => _clockInTime = DateTime.now());
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('上班打卡成功！')));
                   } : null),
@@ -167,7 +196,7 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   // 顯示「新增回報」的底部彈出視窗
-  void _showAddReportBottomSheet(BuildContext context) {
+  void _showAddReportBottomSheet(BuildContext context, String siteName) {
     final dateController = TextEditingController(text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}");
     String? selectedWeather;
     
@@ -279,7 +308,12 @@ class _ReportPageState extends State<ReportPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('新增回報', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                              Expanded(
+                                child: Text('回報：$siteName', 
+                                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                               TextButton(
                                 onPressed: () {
                                   Navigator.pop(ctx);
@@ -522,6 +556,52 @@ class _ReportPageState extends State<ReportPage> {
         children: [
           // 打卡區塊
           _buildClockInCard(),
+          const SizedBox(height: 24),
+          
+          // 橫幅式工地名稱與新增回報按鈕
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFE5BA73).withOpacity(0.2), // 左側微亮金
+                  const Color(0xFF1A2232), // 右側融入卡片底色
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.storefront_outlined, color: Color(0xFFE5BA73)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _selectedSiteForClockIn ?? '尚未選擇工地',
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    if (_selectedSiteForClockIn == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請先在上方選擇工地再新增回報！')));
+                      return;
+                    }
+                    _showAddReportBottomSheet(context, _selectedSiteForClockIn!);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: Color(0xFFE5BA73), shape: BoxShape.circle),
+                    child: const Icon(Icons.add, color: Colors.black, size: 24),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -570,16 +650,6 @@ class _ReportPageState extends State<ReportPage> {
           ),
           const SizedBox(height: 80),
         ],
-      ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80.0), // 抬高按鈕，避免被底部的導航列遮擋
-        child: FloatingActionButton.extended(
-          heroTag: 'report_fab_tag', // 給予獨立的 heroTag 避免衝突
-          onPressed: () => _showAddReportBottomSheet(context),
-          backgroundColor: const Color(0xFFE5BA73), // 琥珀金
-          icon: const Icon(Icons.add, color: Colors.black),
-          label: const Text('新增回報', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        ),
       ),
     );
   }

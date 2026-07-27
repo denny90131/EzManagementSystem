@@ -567,7 +567,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           // 編輯個人資料
           ListTile(
             leading: const Icon(Icons.edit_outlined, color: Color(0xFFE5BA73)),
-            title: const Text('編輯個人資料', style: TextStyle(color: Colors.white)),
+            title: const Text('個人/急救資料', style: TextStyle(color: Colors.white)),
             onTap: () {
               if (!widget.isProfileComplete) {
                 ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('請完善您的個人資料！'), duration: Duration(seconds: 1))); // 顯示2秒

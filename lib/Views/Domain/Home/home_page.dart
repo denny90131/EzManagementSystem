@@ -653,10 +653,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 數值目前為假資料，待 API 完成後可替換為真實變數
-                        _buildHoneycombStat('總工地', '12', const Color(0xFFE5BA73)),
-                        _buildHoneycombStat('今日工地', '3', Colors.blue.shade100),
-                        _buildHoneycombStat('總派工', '45', Colors.greenAccent),
-                        _buildHoneycombStat('總回報', '18', Colors.redAccent),
+                        _buildHoneycombStat('工地', '0/12', const Color(0xFFE5BA73)),
+                        _buildHoneycombStat('出工', '1/3', Colors.blue.shade100),
+                        _buildHoneycombStat('工地回報', '22/45', Colors.greenAccent),
+                        _buildHoneycombStat('出工回報', '2/18', Colors.redAccent),
                       ],
                     ),
                   ),
@@ -744,7 +744,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               const SizedBox(height: 24),
               
               // 6. 即將到來案件 (點擊進入詳細頁面)
-              const Text('即將到來案件', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('案件', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 16),
               Container(
                 margin: const EdgeInsets.only(bottom: 80), // 避免內容被 NavigationBar 遮擋
