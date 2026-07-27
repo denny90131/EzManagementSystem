@@ -203,9 +203,10 @@ class _ReportPageState extends State<ReportPage> {
     // 動態表單狀態
     List<Map<String, dynamic>> constructionRecords = [];
     List<Map<String, dynamic>> materialRecords = [];
-    bool isLogPrivate = false;
-    final logController = TextEditingController();
-    List<XFile> attachedImages = [];
+    final publicLogController = TextEditingController(); // 公開日誌
+    final privateLogController = TextEditingController(); // 內部日誌
+    List<XFile> publicImages = []; // 公開照片
+    List<XFile> privateImages = []; // 內部照片
 
     void addConstructionRecord(StateSetter setModalState) {
       setModalState(() {
@@ -246,21 +247,21 @@ class _ReportPageState extends State<ReportPage> {
             }
 
             // 處理選擇圖片
-            Future<void> pickRecordImages(ImageSource source) async {
+            Future<void> pickRecordImages(ImageSource source, bool isPublic) async {
               try {
                 if (source == ImageSource.gallery) {
                   final List<XFile> images = await _picker.pickMultiImage();
-                  if (images.isNotEmpty) setModalState(() => attachedImages.addAll(images));
+                  if (images.isNotEmpty) setModalState(() => isPublic ? publicImages.addAll(images) : privateImages.addAll(images));
                 } else {
                   final XFile? image = await _picker.pickImage(source: source);
-                  if (image != null) setModalState(() => attachedImages.add(image));
+                  if (image != null) setModalState(() => isPublic ? publicImages.add(image) : privateImages.add(image));
                 }
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法存取相機或相簿')));
               }
             }
 
-            void showImageSource() {
+            void showImageSource(bool isPublic) {
               showModalBottomSheet(
                 context: context,
                 backgroundColor: const Color(0xFF1A2232),
@@ -271,12 +272,12 @@ class _ReportPageState extends State<ReportPage> {
                       ListTile(
                         leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
                         title: const Text('從相簿選擇 (可多選)', style: TextStyle(color: Colors.white)),
-                        onTap: () { Navigator.pop(ctx2); pickRecordImages(ImageSource.gallery); },
+                        onTap: () { Navigator.pop(ctx2); pickRecordImages(ImageSource.gallery, isPublic); },
                       ),
                       ListTile(
                         leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
                         title: const Text('拍照', style: TextStyle(color: Colors.white)),
-                        onTap: () { Navigator.pop(ctx2); pickRecordImages(ImageSource.camera); },
+                        onTap: () { Navigator.pop(ctx2); pickRecordImages(ImageSource.camera, isPublic); },
                       ),
                     ],
                   ),
@@ -470,41 +471,28 @@ class _ReportPageState extends State<ReportPage> {
                             // 4. 工務日誌與照片
                             const Text('工務日誌', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 16, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(isLogPrivate ? Icons.visibility_off_outlined : Icons.public, color: isLogPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6)),
-                                    const SizedBox(width: 8),
-                                    Text(isLogPrivate ? '此日誌為非公開 (內部)' : '此日誌為公開 (業主可見)', style: TextStyle(color: isLogPrivate ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6), fontSize: 14)),
-                                  ],
-                                ),
-                                Switch(value: isLogPrivate, activeColor: const Color(0xFFE5BA73), onChanged: (val) => setModalState(() => isLogPrivate = val)),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildDialogTextField(logController, '填寫日誌與會議紀錄...', Icons.edit_document, maxLines: 4),
+                            // 公開日誌 (給業主)
+                            _buildDialogTextField(publicLogController, '公開日誌 (業主可見)', Icons.public, maxLines: 4),
                             const SizedBox(height: 16),
                             
-                            // 照片列表與上傳按鈕
-                            if (attachedImages.isNotEmpty)
+                            // 公開照片列表與上傳按鈕
+                            if (publicImages.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
-                                  children: List.generate(attachedImages.length, (i) {
+                                  children: List.generate(publicImages.length, (i) {
                                     return Stack(
                                       children: [
                                         Container(
                                           width: 72, height: 72,
-                                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: FileImage(File(attachedImages[i].path)), fit: BoxFit.cover)),
+                                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: FileImage(File(publicImages[i].path)), fit: BoxFit.cover)),
                                         ),
                                         Positioned(
                                           top: 0, right: 0,
                                           child: GestureDetector(
-                                            onTap: () => setModalState(() => attachedImages.removeAt(i)),
+                                            onTap: () => setModalState(() => publicImages.removeAt(i)),
                                             child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, color: Colors.white, size: 16)),
                                           ),
                                         )
@@ -514,9 +502,47 @@ class _ReportPageState extends State<ReportPage> {
                                 ),
                               ),
                             OutlinedButton.icon(
-                              onPressed: showImageSource,
+                              onPressed: () => showImageSource(true),
                               icon: const Icon(Icons.image_outlined, color: Color(0xFF8A94A6)),
-                              label: const Text('附加照片', style: TextStyle(color: Color(0xFF8A94A6))),
+                              label: const Text('附加公開照片', style: TextStyle(color: Color(0xFF8A94A6))),
+                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), side: const BorderSide(color: Colors.white12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                            ),
+                            const Divider(height: 32, color: Colors.white12),
+
+                            // 內部日誌
+                            _buildDialogTextField(privateLogController, '內部日誌 (團隊可見)', Icons.visibility_off_outlined, maxLines: 4),
+                            const SizedBox(height: 16),
+
+                            // 內部照片列表與上傳按鈕
+                            if (privateImages.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: List.generate(privateImages.length, (i) {
+                                    return Stack(
+                                      children: [
+                                        Container(
+                                          width: 72, height: 72,
+                                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: FileImage(File(privateImages[i].path)), fit: BoxFit.cover)),
+                                        ),
+                                        Positioned(
+                                          top: 0, right: 0,
+                                          child: GestureDetector(
+                                            onTap: () => setModalState(() => privateImages.removeAt(i)),
+                                            child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, color: Colors.white, size: 16)),
+                                          ),
+                                        )
+                                      ],
+                                    );
+                                  }),
+                                ),
+                              ),
+                            OutlinedButton.icon(
+                              onPressed: () => showImageSource(false),
+                              icon: const Icon(Icons.image_outlined, color: Color(0xFF8A94A6)),
+                              label: const Text('附加內部照片', style: TextStyle(color: Color(0xFF8A94A6))),
                               style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), side: const BorderSide(color: Colors.white12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                             ),
                           ],

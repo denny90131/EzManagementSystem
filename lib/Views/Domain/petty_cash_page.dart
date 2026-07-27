@@ -118,10 +118,12 @@ class PettyCashPage extends StatelessWidget {
     final TextEditingController dateController = TextEditingController(
       text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
     );
+    final TextEditingController quantityController = TextEditingController();
+    String? selectedUnit;
     final TextEditingController vendorController = TextEditingController();
     final TextEditingController notesController = TextEditingController();
+    String selectedPaymentMethod = '現金'; // 預設為「現金」
     bool isExpense = true; // 預設為「支出」
-    String? selectedPaymentMethod;
     String? selectedTrade;
     String taxType = '不拿發票';
     String? selectedHandler;
@@ -196,13 +198,19 @@ class PettyCashPage extends StatelessWidget {
                         }
                       ),
                       const SizedBox(height: 12),
-                      _buildDialogDropdownField('支付方式', Icons.payment_outlined, ['現金', '電匯/簽帳'], selectedPaymentMethod, (val) => setState(() => selectedPaymentMethod = val)),
+                      _buildSegmentedControl('支付方式', ['現金', '電匯/簽帳'], selectedPaymentMethod, (val) => setState(() => selectedPaymentMethod = val)),
                       const SizedBox(height: 12),
                       _buildDialogTextField(vendorController, '購買對象 (廠商/店名)', Icons.storefront_outlined),
                       const SizedBox(height: 12),
-                      _buildDialogDropdownField('工種', Icons.category_outlined, ['泥作', '木作', '水電', '油漆', '空調', '清潔', '其他'], selectedTrade, (val) => setState(() => selectedTrade = val)),
-                      const SizedBox(height: 12),
                       _buildDialogTextField(titleController, '項目名稱', Icons.edit_note_outlined),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(flex: 1, child: _buildDialogTextField(quantityController, '數量', Icons.numbers, keyboardType: TextInputType.number)),
+                          const SizedBox(width: 12),
+                          Expanded(flex: 1, child: _buildDialogDropdownField('單位', Icons.straighten, ['個', '批', '式', '箱', '才', '趟', '天', '其他'], selectedUnit, (val) => setState(() => selectedUnit = val))),
+                        ],
+                      ),
                       const SizedBox(height: 12),
                       _buildDialogTextField(amountController, '金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
                       const SizedBox(height: 16),
@@ -210,7 +218,7 @@ class PettyCashPage extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildDialogDropdownField('經手人', Icons.person_outline, ['經手人A', '經手人B', '老闆'], selectedHandler, (val) => setState(() => selectedHandler = val)),
                       const SizedBox(height: 16),
-                      _buildSegmentedControl('誰付錢', ['公司', '廠商'], payerType, (val) => setState(() => payerType = val)),
+                      _buildSegmentedControl('誰付錢', ['設計公司/業主', '本團隊'], payerType, (val) => setState(() => payerType = val)),
                       const SizedBox(height: 16),
                       
                       // 憑證上傳區塊
@@ -389,25 +397,50 @@ class PettyCashPage extends StatelessWidget {
             itemCount: 4,
             separatorBuilder: (context, index) => const Divider(height: 1, color: Colors.white12),
             itemBuilder: (context, index) {
-              final isExpense = index != 2; // 模擬資料，第3筆為入帳
+              // 模擬資料
+              final isExpense = index != 2;
+              final vendorName = isExpense ? '立信五金行' : '公司';
+              final itemName = isExpense ? '304不鏽鋼螺絲' : '工程預付款';
+              final quantity = isExpense ? '2' : '';
+              final unit = isExpense ? '盒' : '';
+              final hasPhoto = isExpense && index < 2; // 模擬前兩筆有照片
+              final amount = isExpense ? r'-$450' : r'+$5,000';
+              final date = '2023-11-${20 - index}';
+
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 leading: CircleAvatar(
                   backgroundColor: isExpense ? Colors.redAccent.withOpacity(0.1) : Colors.greenAccent.withOpacity(0.1),
-                  child: Icon(
-                    isExpense ? Icons.arrow_outward : Icons.arrow_downward,
-                    color: isExpense ? Colors.redAccent : Colors.greenAccent,
+                  child: Icon(isExpense ? Icons.arrow_outward : Icons.arrow_downward, color: isExpense ? Colors.redAccent : Colors.greenAccent),
+                ),
+                title: Text(vendorName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Row(
+                    children: [
+                      if (itemName.isNotEmpty)
+                        Flexible(
+                          child: Text(
+                            '$itemName ${quantity.isNotEmpty ? '($quantity $unit)' : ''}',
+                            style: const TextStyle(color: Color(0xFF8A94A6)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      if (hasPhoto) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.image_outlined, size: 16, color: Color(0xFF8A94A6)),
+                      ]
+                    ],
                   ),
                 ),
-                title: Text(isExpense ? '五金行材料採買' : '公司撥款', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                subtitle: Text('2023-11-${20 - index}', style: const TextStyle(color: Color(0xFF8A94A6))),
-                trailing: Text(
-                  isExpense ? r'-$450' : r'+$5,000',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: isExpense ? Colors.redAccent : Colors.greenAccent,
-                  ),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(amount, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isExpense ? Colors.redAccent : Colors.greenAccent)),
+                    const SizedBox(height: 2),
+                    Text(date, style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 12)),
+                  ],
                 ),
               );
             },
