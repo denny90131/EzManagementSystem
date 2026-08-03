@@ -21,13 +21,14 @@ class _DispatchDialogState extends State<DispatchDialog> {
   String? selectedSite;
   List<String> selectedEmployees = [];
   final TextEditingController notesController = TextEditingController();
+  final TextEditingController constructionItemController = TextEditingController(); // 新增：施工項目控制器
   final TextEditingController dateController = TextEditingController(
     text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
   );
-  final TextEditingController startTimeController = TextEditingController(); // 新增：開始時間
-  final TextEditingController endTimeController = TextEditingController();   // 新增：結束時間
-  TimeOfDay? _startTime;
-  TimeOfDay? _endTime;
+  final TextEditingController startTimeController = TextEditingController(text: '08:00'); // 預設開始時間
+  final TextEditingController endTimeController = TextEditingController(text: '17:00');   // 預設結束時間
+  TimeOfDay? _startTime = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay? _endTime = const TimeOfDay(hour: 17, minute: 0);
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
   late Future<List<String>> teamMembersFuture;
 
@@ -59,6 +60,7 @@ class _DispatchDialogState extends State<DispatchDialog> {
   @override
   void dispose() {
     notesController.dispose();
+    constructionItemController.dispose();
     dateController.dispose();
     startTimeController.dispose();
     endTimeController.dispose();
@@ -142,7 +144,7 @@ class _DispatchDialogState extends State<DispatchDialog> {
                             controller: startTimeController,
                             readOnly: true,
                             onTap: () async {
-                              final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
+                              final picked = await showTimePicker(context: context, initialTime: _startTime ?? const TimeOfDay(hour: 8, minute: 0));
                               if (picked != null) {
                                 setState(() {
                                   _startTime = picked;
@@ -168,7 +170,7 @@ class _DispatchDialogState extends State<DispatchDialog> {
                             controller: endTimeController,
                             readOnly: true,
                             onTap: () async {
-                              final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 17, minute: 0));
+                              final picked = await showTimePicker(context: context, initialTime: _endTime ?? const TimeOfDay(hour: 17, minute: 0));
                               if (picked != null) {
                                 setState(() {
                                   _endTime = picked;
@@ -229,6 +231,22 @@ class _DispatchDialogState extends State<DispatchDialog> {
                           }).toList(),
                         );
                       },
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('施工項目', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: constructionItemController,
+                      maxLines: 1,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: '輸入施工項目（例如：天花板封板）...',
+                        hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
+                        filled: true,
+                        fillColor: const Color(0xFF121824),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     const Text('派工備註', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),

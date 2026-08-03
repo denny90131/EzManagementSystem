@@ -119,7 +119,7 @@ class PettyCashPage extends StatelessWidget {
       text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
     );
     final TextEditingController quantityController = TextEditingController();
-    String? selectedUnit;
+    final TextEditingController unitController = TextEditingController();
     final TextEditingController vendorController = TextEditingController();
     final TextEditingController notesController = TextEditingController();
     String selectedPaymentMethod = '現金'; // 預設為「現金」
@@ -208,7 +208,7 @@ class PettyCashPage extends StatelessWidget {
                         children: [
                           Expanded(flex: 1, child: _buildDialogTextField(quantityController, '數量', Icons.numbers, keyboardType: TextInputType.number)),
                           const SizedBox(width: 12),
-                          Expanded(flex: 1, child: _buildDialogDropdownField('單位', Icons.straighten, ['個', '批', '式', '箱', '才', '趟', '天', '其他'], selectedUnit, (val) => setState(() => selectedUnit = val))),
+                          Expanded(flex: 1, child: _buildDialogTextField(unitController, '單位', Icons.straighten)),
                         ],
                       ),
                       const SizedBox(height: 12),

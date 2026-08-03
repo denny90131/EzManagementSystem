@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class AddConstructionDialog extends StatefulWidget {
   const AddConstructionDialog({super.key});
@@ -28,9 +30,14 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   final TextEditingController notesController = TextEditingController();
   final TextEditingController projectController = TextEditingController(); // 新增：建案
   final TextEditingController accessControlController = TextEditingController(); // 新增：門禁
+  final TextEditingController parkingSpotController = TextEditingController(); // 新增：停車位
   final TextEditingController sellingPriceController = TextEditingController(); // 新增：售價
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
   String? _selectedConstructionItem; // 新增：施工項目
+
+  final ImagePicker _picker = ImagePicker();
+  List<XFile> _accessControlImages = [];
+  List<XFile> _parkingSpotImages = [];
 
   @override
   void dispose() {
@@ -46,11 +53,26 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     notesController.dispose();
     projectController.dispose();
     accessControlController.dispose();
+    parkingSpotController.dispose();
     sellingPriceController.dispose();
     super.dispose();
   }
 
   Widget _buildDialogTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false, VoidCallback? onTap}) {
+    return _buildCustomTextField(controller: controller, label: label, icon: icon, maxLines: maxLines, keyboardType: keyboardType, readOnly: readOnly, onTap: onTap);
+  }
+
+  // 建立一個更通用的 TextField Builder，方便加入 suffixIcon
+  Widget _buildCustomTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    Widget? suffixIcon,
+  }) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
@@ -60,8 +82,9 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: const Color(0xFF8A94A6)),
+        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
         prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFF121824),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -79,7 +102,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: const Color(0xFF8A94A6)),
+        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
         prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
         filled: true,
         fillColor: const Color(0xFF121824),
@@ -92,6 +115,56 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     );
   }
 
+  // 顯示圖片來源選擇的 ActionSheet
+  void _showImageSourceActionSheet(BuildContext context, Function(ImageSource) onPick) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A2232),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
+                title: const Text('從相簿選擇 (可多選)', style: TextStyle(color: Colors.white)),
+                onTap: () { Navigator.of(context).pop(); onPick(ImageSource.gallery); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
+                title: const Text('拍照', style: TextStyle(color: Colors.white)),
+                onTap: () { Navigator.of(context).pop(); onPick(ImageSource.camera); },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 處理選擇圖片
+  Future<void> _pickImages(ImageSource source, bool isForAccessControl) async {
+    try {
+      if (source == ImageSource.gallery) {
+        final List<XFile> images = await _picker.pickMultiImage();
+        if (images.isNotEmpty) {
+          setState(() {
+            if (isForAccessControl) _accessControlImages.addAll(images);
+            else _parkingSpotImages.addAll(images);
+          });
+        }
+      } else {
+        final XFile? image = await _picker.pickImage(source: source);
+        if (image != null) {
+          setState(() {
+            if (isForAccessControl) _accessControlImages.add(image);
+            else _parkingSpotImages.add(image);
+          });
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法存取相機或相簿')));
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -111,11 +184,35 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                     const SizedBox(height: 12),
                     _buildDialogTextField(ownerPhoneController, '業主手機號碼', Icons.phone_outlined, keyboardType: TextInputType.phone),
                     const SizedBox(height: 12),
-                    _buildDialogTextField(accessControlController, '門禁', Icons.vpn_key_outlined),
-                    const SizedBox(height: 12),
                     _buildDialogTextField(siteNameController, '工地名稱', Icons.work_outline),
                     const SizedBox(height: 12),
                     _buildDialogTextField(siteAddressController, '工地地址', Icons.location_on_outlined),
+                    const SizedBox(height: 12),
+                    _buildCustomTextField(
+                      controller: accessControlController,
+                      label: '門禁/鑰匙',
+                      icon: Icons.vpn_key_outlined,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)),
+                        onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, true)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_accessControlImages.isNotEmpty)
+                      _buildImageThumbnails(_accessControlImages, (index) => setState(() => _accessControlImages.removeAt(index))),
+                    const SizedBox(height: 12),
+                    _buildCustomTextField(
+                      controller: parkingSpotController,
+                      label: '停車位',
+                      icon: Icons.local_parking_outlined,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)),
+                        onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, false)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_parkingSpotImages.isNotEmpty)
+                      _buildImageThumbnails(_parkingSpotImages, (index) => setState(() => _parkingSpotImages.removeAt(index))),
                     const SizedBox(height: 12),
                     _buildDialogTextField(projectController, '建案', Icons.domain_outlined),
                     const SizedBox(height: 12),
@@ -130,6 +227,8 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                       _selectedConstructionItem, 
                       (val) => setState(() => _selectedConstructionItem = val)
                     ),
+                    const SizedBox(height: 12),
+                    _buildDialogTextField(sellingPriceController, '售價', Icons.sell_outlined, keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
                     _buildDialogTextField(budgetController, '預算金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
@@ -147,9 +246,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                       }
                     }),
                     const SizedBox(height: 12),
-                    _buildDialogTextField(durationController, '預計工期 (天)', Icons.timer_outlined, keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(sellingPriceController, '售價', Icons.sell_outlined, keyboardType: TextInputType.number),
+                    _buildDialogTextField(durationController, '預計工期 (工作天數)', Icons.timer_outlined, keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
                     _buildDialogTextField(notesController, '備註', Icons.note_alt_outlined, maxLines: 3),
                   ],
@@ -192,6 +289,34 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
           child: const Text('確認新增', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
+    );
+  }
+
+  Widget _buildImageThumbnails(List<XFile> images, Function(int) onRemove) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(images.length, (i) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                image: DecorationImage(image: FileImage(File(images[i].path)), fit: BoxFit.cover),
+              ),
+            ),
+            Positioned(
+              top: -8, right: -8,
+              child: GestureDetector(
+                onTap: () => onRemove(i),
+                child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, color: Colors.white, size: 14)),
+              ),
+            )
+          ],
+        );
+      }),
     );
   }
 }

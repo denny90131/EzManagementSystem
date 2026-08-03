@@ -105,7 +105,7 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
                   controller: _contactController,
                   style: const TextStyle(color: Colors.white, fontSize: 16, letterSpacing: 1.0),
                   decoration: InputDecoration(
-                    hintText: '輸入手機號碼或信箱...',
+                    hintText: '輸入手機號碼',
                     hintStyle: const TextStyle(color: Colors.white30, letterSpacing: 1.0, fontSize: 14),
                     prefixIcon: const Icon(Icons.person_add_alt_1_outlined, color: Color(0xFF8A94A6)),
                     filled: true,
@@ -159,7 +159,7 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
   Future<void> _submitInvite() async {
     final contactInfo = _contactController.text.trim();
     if (contactInfo.isEmpty) {
-      setState(() => _errorMessage = '請輸入對方的手機號碼或信箱');
+      setState(() => _errorMessage = '請輸入對方的手機號碼');
       return;
     }
 
