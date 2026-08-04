@@ -17,6 +17,7 @@ class _ReportPageState extends State<ReportPage> {
   DateTime? _clockOutTime; // 記錄下班打卡時間
 
   String? _selectedSiteForClockIn; // 新增：記錄選擇的打卡工地
+  String? _clockInSite; // 新增：記錄上班打卡時的工地
   // 模擬工地列表 (未來可改由 API 取得該使用者的派工清單)
   final List<String> _availableSites = ['中山區辦公大樓空調維護', '信義區百貨管線重整', '大安區豪宅裝潢工程'];
 
@@ -110,10 +111,10 @@ class _ReportPageState extends State<ReportPage> {
         
         // 新增打卡工地選擇下拉選單
         DropdownButtonFormField<String>(
-          value: _selectedSiteForClockIn,
+          value: _clockInTime != null ? _clockInSite : _selectedSiteForClockIn,
           dropdownColor: const Color(0xFF1A2232),
           // 已經打卡後，就不允許更改工地
-          onChanged: _clockInTime == null ? (val) => setState(() => _selectedSiteForClockIn = val) : null,
+          onChanged: (val) => setState(() => _selectedSiteForClockIn = val),
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             labelText: '選擇打卡工地',
@@ -136,7 +137,10 @@ class _ReportPageState extends State<ReportPage> {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請先選擇打卡工地！')));
                     return;
                   }
-                    setState(() => _clockInTime = DateTime.now());
+                    setState(() {
+                      _clockInTime = DateTime.now();
+                      _clockInSite = _selectedSiteForClockIn; // 記錄上班工地
+                    });
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('上班打卡成功！')));
                   } : null),
               ),
@@ -144,7 +148,12 @@ class _ReportPageState extends State<ReportPage> {
               Expanded(
                 child: _buildClockButton(title: '下班打卡', time: _clockOutTime, icon: Icons.logout, color: Colors.orangeAccent, onTap: (_clockInTime != null && _clockOutTime == null) ? () {
                     setState(() => _clockOutTime = DateTime.now());
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('下班打卡成功！辛苦了！')));
+                    // 下班打卡時，使用當前選擇的工地
+                    final clockOutSite = _selectedSiteForClockIn ?? '未知工地';
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('於「$clockOutSite」下班打卡成功！辛苦了！'),
+                      duration: const Duration(seconds: 3),
+                    ));
                   } : null),
               ),
             ],

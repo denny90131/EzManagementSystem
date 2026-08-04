@@ -377,8 +377,7 @@ class PettyCashPage extends StatelessWidget {
         children: [
           const Text('現場採買與核銷狀態', style: TextStyle(fontSize: 16, color: Color(0xFF8A94A6), fontWeight: FontWeight.w500)),
           const SizedBox(height: 24),
-          _buildSummaryRow('可用餘額', r'$18,400', Icons.account_balance_wallet_outlined),
-          _buildSummaryRow('待核銷', r'$4,260', Icons.receipt_long_outlined),
+          _buildSummaryRow('當月總支出', r'$18,400', Icons.account_balance_wallet_outlined),
           _buildSummaryRow('今日支出', r'$1,120', Icons.trending_down),
 
           const SizedBox(height: 32),

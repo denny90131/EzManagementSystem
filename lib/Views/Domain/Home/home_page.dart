@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../API/Authenticator_api.dart';
+import '../../../API/construction_api.dart'; // 引入工地 API
 import '../../../API/Subscribe_api.dart'; // 引入訂閱 API
 import '../../../API/Team_api.dart'; // 引入團隊 API
 import 'Setting/settings_sheet.dart'; // 引入獨立的底部選單元件
@@ -31,6 +32,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _isProfileComplete = true; // 新增：追蹤個人資料是否完整
   Map<String, dynamic>? _fullUserData;
   List<Map<String, dynamic>> _teamMembers = []; // 新增：團隊成員名單
+  List<Map<String, dynamic>> _sites = []; // 新增：工地列表
+  List<Map<String, dynamic>> _filteredSites = []; // 新增：過濾後的工地列表
+  final TextEditingController _searchController = TextEditingController(); // 新增：搜尋控制器
   bool _isLoading = true; // 新增：控制載入中動畫狀態
   bool _isSubscribed = false; // 新增：追蹤團隊是否已訂閱
   
@@ -69,7 +73,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     } else {
       _fetchData(fetchUser: true); // 沒有初始資料，必須抓取
     }
-    
 
     // 初始化儀表板動畫 (預設 0%，待 API 抓回資料後再動態計算目標進度)
     _animationController = AnimationController(
@@ -79,11 +82,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _animation = Tween<double>(begin: 0.0, end: 0.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
+
+    // 監聽搜尋框的輸入變化
+    _searchController.addListener(_filterSites);
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _searchController.removeListener(_filterSites);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -97,6 +105,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       // 1. 準備所有 API 請求 (此時不使用 await，讓它們不阻塞)
       final hasTeam = activeTeamId != null && activeTeamId.isNotEmpty;
       final membersFuture = hasTeam ? TeamApiService.getMemberTeam(activeTeamId) : Future.value(null);
+      final sitesFuture = hasTeam ? ConstructionApiService.getSitesByTeam(activeTeamId) : Future.value(null); // 獲取工地列表
       final planFuture = hasTeam ? SubscriptionApiService.getActivePlan(activeTeamId) : Future.value(null);
       
       final shouldFetchUser = userId != null && fetchUser; // 根據參數決定是否發送使用者 API
@@ -108,6 +117,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       // 2. 使用 Future.wait 平行發起所有請求 (大幅減少首頁轉圈圈的時間)
       final results = await Future.wait([
         membersFuture,
+        sitesFuture,
         planFuture,
         userFuture,
         statusFuture,
@@ -117,10 +127,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (!mounted) return;
 
       final members = results[0];
-      final activePlan = results[1];
-      final userData = results[2];
-      final status = results[3];
-      final teamsData = results[4]; // 取出團隊清單資料
+      final sites = results[1];
+      final activePlan = results[2];
+      final userData = results[3];
+      final status = results[4];
+      final teamsData = results[5]; // 取出團隊清單資料
 
       // 🚀 將非同步的 await 移出 setState 之外
       // 等待 compute 在背景把成員名單與 Base64 圖片都解析完畢
@@ -163,6 +174,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         if (hasTeam) {
           _isSubscribed = activePlan != null && (activePlan as dynamic).remainingDays > 0;
           _teamMembers = parsedMembers; // 直接賦予已在背景運算完成的資料
+          // 檢查 sites 是否為 List 型別，避免型別轉換錯誤
+          if (sites != null && sites is List) {
+            _sites = List<Map<String, dynamic>>.from(sites);
+            _filteredSites = _sites; // 初始狀態下，過濾列表等於完整列表
+          } else {
+            _sites = [];
+          }
         } else {
           _teamMembers = [];
           _isSubscribed = false;
@@ -209,6 +227,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  // 根據搜尋框內容過濾工地列表
+  void _filterSites() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredSites = _sites.where((site) {
+        final siteName = (site['siteName'] ?? '').toLowerCase();
+        final siteAddress = (site['siteAddress'] ?? '').toLowerCase();
+        final siteOwner = (site['siteOwner'] ?? '').toLowerCase();
+        return siteName.contains(query) || siteAddress.contains(query) || siteOwner.contains(query);
+      }).toList();
+    });
+  }
   // 動態更新出勤率動畫
   void _updateAttendanceAnimation() {
     final workingCount = _teamMembers.where((m) => m['isWorking'] == true).length;
@@ -544,8 +574,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     if (_isSubscribed) ...[
                       Tooltip(
                         message: '新增工地',
-                        child: ElevatedButton(
-                          onPressed: () => AddConstructionDialog.show(context), // 呼叫獨立的靜態方法
+                        child: ElevatedButton( // 呼叫獨立的靜態方法
+                          onPressed: () async {
+                            final result = await showDialog<bool>(context: context, builder: (ctx) => const AddConstructionDialog());
+                            if (result == true) {
+                              _fetchData(fetchUser: false); // 如果新增成功，則重新抓取資料
+                            }
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1A2232), // 深色底搭配金邊
                             side: const BorderSide(color: Color(0xFFE5BA73)),
@@ -744,51 +779,86 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               const SizedBox(height: 24),
               
               // 6. 即將到來案件 (點擊進入詳細頁面)
-              const Text('案件', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('案件', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text('共 ${_filteredSites.length} 件', style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
+                ],
+              ),
               const SizedBox(height: 16),
-              Container(
-                margin: const EdgeInsets.only(bottom: 80), // 避免內容被 NavigationBar 遮擋
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A2232), // 改為深色風格卡片
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3), width: 1.5), // 金色外框
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const CaseDetailPage()));
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Expanded(child: Text('中山區辦公大樓空調維護', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
-                              const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF8A94A6)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          _buildCaseInfoRow(Icons.calendar_today, '派工日期：2023-11-20', const Color(0xFFE65100)),
-                          const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.location_on, '台北市中山區南京東路1段1號', Colors.red.shade400),
-                          const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.people, '派工：測試員工1, 測試員工2', Colors.blue.shade400),
-                          const SizedBox(height: 10),
-                          _buildCaseInfoRow(Icons.note_alt_outlined, '派工備註：例行性空調保養，請攜帶A字梯', Colors.green.shade400),
-                        ],
-                      ),
-                    ),
-                  ),
+              // 搜尋框
+              TextField(
+                controller: _searchController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: '搜尋工地名稱、地址或業主...',
+                  hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF8A94A6)),
+                  suffixIcon: _searchController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, color: Color(0xFF8A94A6)), onPressed: () => _searchController.clear()) : null,
+                  filled: true,
+                  fillColor: const Color(0xFF1A2232),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 ),
               ),
+              const SizedBox(height: 16),
+              
+              // 三元運算子判斷是否為空
+              _filteredSites.isEmpty
+                  ? Container(
+                      margin: const EdgeInsets.only(bottom: 80),
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A2232),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(child: Text(_sites.isEmpty ? '目前尚無工地案件' : '找不到符合條件的案件', style: const TextStyle(color: Color(0xFF8A94A6)))),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _filteredSites.length,
+                      itemBuilder: (context, index) {
+                        final site = _filteredSites[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16), // 每個卡片的間距
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A2232),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3), width: 1.5),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CaseDetailPage())),
+                              child: Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(child: Text(site['siteName'] ?? '未命名工地', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
+                                        const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF8A94A6)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _buildCaseInfoRow(Icons.location_on, site['siteAddress'] ?? '無地址資訊', Colors.red.shade400),
+                                    const SizedBox(height: 10),
+                                    _buildCaseInfoRow(Icons.person, '業主: ${site['siteOwner'] ?? '-'}', Colors.blue.shade400),
+                                    const SizedBox(height: 10),
+                                    _buildCaseInfoRow(Icons.note_alt_outlined, '備註: ${site['note'] ?? '-'}', Colors.green.shade400),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ), // 👈 這裡必須加上這個右括號來關閉 ListView.builder
             ],
           ),
         ), // 補上 Padding 的結尾括號

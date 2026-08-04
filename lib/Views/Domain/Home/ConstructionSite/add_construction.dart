@@ -36,8 +36,8 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   String? _selectedConstructionItem; // 新增：施工項目
 
   final ImagePicker _picker = ImagePicker();
-  List<XFile> _accessControlImages = [];
-  List<XFile> _parkingSpotImages = [];
+  final List<Map<String, dynamic>> _accessControlImages = [];
+  final List<Map<String, dynamic>> _parkingSpotImages = [];
 
   @override
   void dispose() {
@@ -55,6 +55,12 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     accessControlController.dispose();
     parkingSpotController.dispose();
     sellingPriceController.dispose();
+    for (var imgData in _accessControlImages) {
+      (imgData['controller'] as TextEditingController).dispose();
+    }
+    for (var imgData in _parkingSpotImages) {
+      (imgData['controller'] as TextEditingController).dispose();
+    }
     super.dispose();
   }
 
@@ -147,17 +153,25 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       if (source == ImageSource.gallery) {
         final List<XFile> images = await _picker.pickMultiImage();
         if (images.isNotEmpty) {
+          final newImages = images.map((file) => {'file': file, 'controller': TextEditingController()}).toList();
           setState(() {
-            if (isForAccessControl) _accessControlImages.addAll(images);
-            else _parkingSpotImages.addAll(images);
+            if (isForAccessControl) {
+              _accessControlImages.addAll(newImages);
+            } else {
+              _parkingSpotImages.addAll(newImages);
+            }
           });
         }
       } else {
         final XFile? image = await _picker.pickImage(source: source);
         if (image != null) {
+          final newImage = {'file': image, 'controller': TextEditingController()};
           setState(() {
-            if (isForAccessControl) _accessControlImages.add(image);
-            else _parkingSpotImages.add(image);
+            if (isForAccessControl) {
+              _accessControlImages.add(newImage);
+            } else {
+              _parkingSpotImages.add(newImage);
+            }
           });
         }
       }
@@ -292,20 +306,42 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     );
   }
 
-  Widget _buildImageThumbnails(List<XFile> images, Function(int) onRemove) {
+  Widget _buildImageThumbnails(List<Map<String, dynamic>> images, Function(int) onRemove) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: List.generate(images.length, (i) {
+        final imageFile = images[i]['file'] as XFile;
+        final controller = images[i]['controller'] as TextEditingController;
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
-              width: 64, height: 64,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                image: DecorationImage(image: FileImage(File(images[i].path)), fit: BoxFit.cover),
-              ),
+            Column(
+              children: [
+                Container(
+                  width: 80, height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    image: DecorationImage(image: FileImage(File(imageFile.path)), fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: controller,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: const InputDecoration(
+                      hintText: '備註...',
+                      hintStyle: TextStyle(color: Colors.white30, fontSize: 12),
+                      isDense: true,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ],
             ),
             Positioned(
               top: -8, right: -8,
