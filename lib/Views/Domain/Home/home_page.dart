@@ -139,7 +139,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (hasTeam && members != null) {
         parsedMembers = await compute(_parseTeamMembersInBackground, members as List);
       }
-
+      if (hasTeam && members != null && members is List) {
+        parsedMembers = await compute(_parseTeamMembersInBackground, members);
+      }
       if (!mounted) return;
 
       setState(() {
@@ -174,7 +176,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         if (hasTeam) {
           _isSubscribed = activePlan != null && (activePlan as dynamic).remainingDays > 0;
           _teamMembers = parsedMembers; // 直接賦予已在背景運算完成的資料
-          // 檢查 sites 是否為 List 型別，避免型別轉換錯誤
+          // 檢查 sites 是否為 List 型別，避免型別轉換錯誤ß
           if (sites != null && sites is List) {
             _sites = List<Map<String, dynamic>>.from(sites);
             _filteredSites = _sites; // 初始狀態下，過濾列表等於完整列表
@@ -182,6 +184,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _sites = [];
           }
         } else {
+          _sites = [];
           _teamMembers = [];
           _isSubscribed = false;
         }
@@ -244,7 +247,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final workingCount = _teamMembers.where((m) => m['isWorking'] == true).length;
     final targetRatio = _teamMembers.isEmpty ? 0.0 : (workingCount / _teamMembers.length);
     
-    _animation = Tween<double>(begin: 0.0, end: targetRatio).animate(
+    _animation = Tween<double>(begin: _animation.value, end: targetRatio).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
     _animationController.forward(from: 0.0); // 觸發動畫
@@ -803,62 +806,64 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
               const SizedBox(height: 16),
               
-              // 三元運算子判斷是否為空
-              _filteredSites.isEmpty
-                  ? Container(
-                      margin: const EdgeInsets.only(bottom: 80),
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A2232),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(child: Text(_sites.isEmpty ? '目前尚無工地案件' : '找不到符合條件的案件', style: const TextStyle(color: Color(0xFF8A94A6)))),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _filteredSites.length,
-                      itemBuilder: (context, index) {
-                        final site = _filteredSites[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16), // 每個卡片的間距
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1A2232),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3), width: 1.5),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CaseDetailPage())),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(child: Text(site['siteName'] ?? '未命名工地', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
-                                        const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF8A94A6)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _buildCaseInfoRow(Icons.location_on, site['siteAddress'] ?? '無地址資訊', Colors.red.shade400),
-                                    const SizedBox(height: 10),
-                                    _buildCaseInfoRow(Icons.person, '業主: ${site['siteOwner'] ?? '-'}', Colors.blue.shade400),
-                                    const SizedBox(height: 10),
-                                    _buildCaseInfoRow(Icons.note_alt_outlined, '備註: ${site['note'] ?? '-'}', Colors.green.shade400),
-                                  ],
+              // 工地列表
+              _isLoading
+                  ? const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 40.0), child: CircularProgressIndicator(color: Color(0xFFE5BA73))))
+                  : _filteredSites.isEmpty
+                      ? Container(
+                          margin: const EdgeInsets.only(bottom: 80),
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
+                          child: Center(child: Text(_sites.isEmpty ? '目前尚無工地案件' : '找不到符合條件的案件', style: const TextStyle(color: Color(0xFF8A94A6)))),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: 80.0),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _filteredSites.length,
+                            itemBuilder: (context, index) {
+                              final site = _filteredSites[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A2232),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3), width: 1.5),
+                                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
                                 ),
-                              ),
-                            ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CaseDetailPage())),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(20.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(child: Text(site['siteName'] ?? '未命名工地', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
+                                              const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF8A94A6)),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 16),
+                                          _buildCaseInfoRow(Icons.location_on, site['siteAddress'] ?? '無地址資訊', Colors.red.shade400),
+                                          const SizedBox(height: 10),
+                                          _buildCaseInfoRow(Icons.person, '業主: ${site['siteOwner'] ?? '-'}', Colors.blue.shade400),
+                                          const SizedBox(height: 10),
+                                          _buildCaseInfoRow(Icons.note_alt_outlined, '備註: ${site['note'] ?? '-'}', Colors.green.shade400),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ), // 👈 這裡必須加上這個右括號來關閉 ListView.builder
+                        ),
             ],
           ),
         ), // 補上 Padding 的結尾括號

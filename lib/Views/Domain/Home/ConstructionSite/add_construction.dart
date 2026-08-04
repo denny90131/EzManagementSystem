@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../API/construction_api.dart';
 
 class AddConstructionDialog extends StatefulWidget {
   const AddConstructionDialog({super.key});
@@ -25,7 +28,9 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   final TextEditingController contractorNameController = TextEditingController();
   final TextEditingController contractorPhoneController = TextEditingController();
   final TextEditingController budgetController = TextEditingController();
-  final TextEditingController orderDateController = TextEditingController();
+  final TextEditingController orderDateController = TextEditingController(
+    text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
+  );
   final TextEditingController durationController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
   final TextEditingController projectController = TextEditingController(); // 新增：建案
@@ -33,7 +38,8 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   final TextEditingController parkingSpotController = TextEditingController(); // 新增：停車位
   final TextEditingController sellingPriceController = TextEditingController(); // 新增：售價
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
-  String? _selectedConstructionItem; // 新增：施工項目
+  bool _isSaving = false;
+  final TextEditingController constructionItemController = TextEditingController(); // 改為使用控制器
 
   final ImagePicker _picker = ImagePicker();
   final List<Map<String, dynamic>> _accessControlImages = [];
@@ -55,6 +61,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     accessControlController.dispose();
     parkingSpotController.dispose();
     sellingPriceController.dispose();
+    constructionItemController.dispose();
     for (var imgData in _accessControlImages) {
       (imgData['controller'] as TextEditingController).dispose();
     }
@@ -96,28 +103,6 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
       ),
-    );
-  }
-
-  // 新增：下拉式選單輔助元件
-  Widget _buildDialogDropdownField(String label, IconData icon, List<String> items, String? value, ValueChanged<String?> onChanged) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      dropdownColor: const Color(0xFF1A2232),
-      onChanged: onChanged,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
-        filled: true,
-        fillColor: const Color(0xFF121824),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-      ),
-      items: items.map((String item) {
-        return DropdownMenuItem<String>(value: item, child: Text(item));
-      }).toList(),
     );
   }
 
@@ -179,6 +164,83 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法存取相機或相簿')));
     }
   }
+
+  Future<void> _submit() async {
+    if (siteNameController.text.trim().isEmpty) {
+      setState(() => _errorMessage = '請填寫工地名稱');
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final teamUUID = prefs.getString('active_team_uuid');
+      final memberUUID = prefs.getString('user_id');
+
+      if (teamUUID == null || memberUUID == null) {
+        setState(() => _errorMessage = '無法取得團隊或使用者資訊，請重新登入');
+        return;
+      }
+
+      // 處理圖片與備註
+      List<Map<String, String>> sources = [];
+      for (var imgData in _accessControlImages) {
+        final file = imgData['file'] as XFile;
+        final controller = imgData['controller'] as TextEditingController;
+        final bytes = await file.readAsBytes();
+        sources.add({
+          "sourceType": "image",
+          "source": base64Encode(bytes),
+          "note": "門禁照片: ${controller.text.trim()}",
+        });
+      }
+      for (var imgData in _parkingSpotImages) {
+        final file = imgData['file'] as XFile;
+        final controller = imgData['controller'] as TextEditingController;
+        final bytes = await file.readAsBytes();
+        sources.add({
+          "sourceType": "image",
+          "source": base64Encode(bytes),
+          "note": "停車位照片: ${controller.text.trim()}",
+        });
+      }
+
+      final (errorMessage, data) = await ConstructionApiService.insertNewSite(
+        teamUUID: teamUUID,
+        uploadMemberUUID: memberUUID,
+        siteName: siteNameController.text.trim(),
+        siteAddress: siteAddressController.text.trim(),
+        siteOwner: ownerNameController.text.trim(),
+        siteOwnerPhoneNumber: ownerPhoneController.text.trim(),
+        siteClient: contractorNameController.text.trim(),
+        siteClientPhoneNumber: contractorPhoneController.text.trim(),
+        price: int.tryParse(budgetController.text.trim()),
+        siteOrderBegeingDate: orderDateController.text.isNotEmpty ? "${orderDateController.text.trim()}T00:00:00" : null,
+        siteOrderExecuteTime: int.tryParse(durationController.text.trim()),
+        siteProperty: constructionItemController.text.trim(),
+        note: notesController.text.trim(),
+        sources: sources.isEmpty ? null : sources,
+      );
+
+      if (!mounted) return;
+
+      if (errorMessage == null) {
+        Navigator.pop(context, true); // 回傳 true 代表新增成功
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已建立新工地：${siteNameController.text}')));
+      } else {
+        setState(() => _errorMessage = errorMessage);
+      }
+    } catch (e) {
+      setState(() => _errorMessage = '發生未預期的錯誤: $e');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -234,13 +296,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                     const SizedBox(height: 12),
                     _buildDialogTextField(contractorPhoneController, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone),
                     const SizedBox(height: 12),
-                    _buildDialogDropdownField(
-                      '施工項目', 
-                      Icons.category_outlined, 
-                      ['水電工程', '木作工程', '泥作工程', '油漆工程', '空調工程', '清潔工程', '其他'], 
-                      _selectedConstructionItem, 
-                      (val) => setState(() => _selectedConstructionItem = val)
-                    ),
+                    _buildDialogTextField(constructionItemController, '施工項目', Icons.category_outlined),
                     const SizedBox(height: 12),
                     _buildDialogTextField(sellingPriceController, '售價', Icons.sell_outlined, keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
@@ -287,20 +343,9 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
           child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6))),
         ),
         ElevatedButton(
-          onPressed: () {
-            if (siteNameController.text.trim().isEmpty) {
-              setState(() {
-                _errorMessage = '請填寫工地名稱'; // 將錯誤訊息顯示在視窗內
-              });
-              return;
-            }
-            setState(() => _errorMessage = null); // 清除錯誤訊息
-            // TODO: 這裡可以加入呼叫 API 新增工地的邏輯
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已建立新工地：${siteNameController.text}')));
-          },
+          onPressed: _isSaving ? null : _submit,
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black),
-          child: const Text('確認新增', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : const Text('確認新增', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
