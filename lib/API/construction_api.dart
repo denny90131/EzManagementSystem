@@ -89,29 +89,57 @@ class ConstructionApiService {
   ///
   /// ### 回傳:
   /// - `List<Map<String, dynamic>>?`: 成功時回傳工地列表，失敗或無資料時回傳 `null` 或空列表。
-  static Future<List<dynamic>?> getSitesByTeam(String teamUUID) async {
+  static Future<List<Map<String, dynamic>>?> getSitesByTeam(String teamUUID) async {
     try {
       // 根據您的 home_page.dart 推斷，您需要一個透過 teamUUID 取得工地列表的 API
       // 請與後端確認實際的 Endpoint 路徑
-      final response = await BaseApi.get('/Site/GetSite/$teamUUID');
+      final response = await BaseApi.get('/Site/GetSitesByTeam/$teamUUID');
+      print('[ConstructionApiService] getSitesByTeam - URL: /Site/GetSitesByTeam/$teamUUID');
+      print('[ConstructionApiService] getSitesByTeam - Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
+        dynamic data = decoded;
+
         // 處理後端可能將資料包裝在 'data' 屬性內的情況
         if (decoded is Map && decoded.containsKey('data')) {
-          return decoded['data'];
+          data = decoded['data'];
         }
-        if (decoded is List) {
-          return decoded;
+
+        print('[ConstructionApiService] getSitesByTeam - Decoded Data: $data');
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
         }
+        print('[ConstructionApiService] getSitesByTeam - Data is not a List, returning empty.');
         return []; // 成功但無資料
       }
+      print('[ConstructionApiService] getSitesByTeam - API call failed or status not 200.');
       return null;
     } catch (e) {
       return null;
     }
   }
 
-  // 您可以在此繼續添加其他 API 方法，例如：
-  // static Future<void> updateSite(...) async { ... }
-  // static Future<void> deleteSite(...) async { ... }
+  /// 3. 根據工地 UUID 取得單筆工地詳細資料
+  ///
+  /// - **Endpoint**: `GET /api/Site/GetSiteDetail/{siteUUID}`
+  ///
+  /// ### 參數:
+  /// - `siteUUID`: [String] 工地唯一識別碼
+  ///
+  /// ### 回傳:
+  /// - `Map<String, dynamic>?`: 成功時回傳包含 `siteInfo` 和 `sources` 的完整工地資料，失敗時回傳 `null`。
+  static Future<Map<String, dynamic>?> getSiteDetail(String siteUUID) async {
+    try {
+      final response = await BaseApi.get('/Site/GetSiteDetail/$siteUUID');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        // 後端資料通常會包在 'data' 屬性裡
+        return decoded['data'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('取得工地詳細資料失敗: $e');
+      return null;
+    }
+  }
 }

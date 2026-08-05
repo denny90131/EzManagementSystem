@@ -6,7 +6,10 @@ import 'package:file_picker/file_picker.dart';
 
 // --- 案件詳細頁面 (點擊案件卡片時導覽) ---
 class CaseDetailPage extends StatefulWidget {
-  const CaseDetailPage({super.key});
+  // 1. 將參數從 siteUUID 改為接收整個 site map
+  final Map<String, dynamic> site;
+
+  const CaseDetailPage({super.key, required this.site});
 
   @override
   State<CaseDetailPage> createState() => _CaseDetailPageState();
@@ -16,23 +19,31 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   int _currentTab = 0; // 0: 會議紀錄, 1: 現況照, 2: 3D模擬圖, 3: 施工圖, 4: 材質表, 5: 設備表
   final ImagePicker _picker = ImagePicker(); // 圖片選擇器器實例
 
-  // 模擬工地詳細資料
-  Map<String, dynamic> _siteDetails = {
-    'ownerName': '王大明',
-    'ownerPhone': '0912-345-678',
-    'accessControl': '大門密碼 1234',
-    'siteName': '中山區辦公大樓空調維護',
-    'siteAddress': '台北市中山區南京東路1段1號',
-    'project': '中山世紀辦公大樓',
-    'contractorName': '李老闆',
-    'contractorPhone': '0987-654-321',
-    'constructionItem': '空調工程',
-    'budget': '50000',
-    'orderDate': '2023-11-20',
-    'duration': '5',
-    'sellingPrice': '65000',
-    'notes': '例行性空調保養，請攜帶A字梯',
-  };
+  // 工地詳細資料，將由 initState 初始化
+  late Map<String, dynamic> _siteDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    // 2. 使用從前一頁傳來的 widget.site 資料來初始化 _siteDetails
+    //    對於 widget.site 中沒有的欄位，會使用預設值或空字串
+    _siteDetails = {
+      // 從 widget.site 對應過來的資料
+      'siteName': widget.site['siteName'] ?? '未命名工地', // 正確
+      'siteAddress': widget.site['siteAddress'] ?? '無地址資訊', // 正確 (注意：編輯視窗使用的是 'notes' 而非 'note')
+      'notes': widget.site['note'] ?? '', // 正確
+
+      // --- 以下是修正過的欄位 ---
+      'ownerName': widget.site['siteClient'] ?? '未提供', // [修正] 業主名稱，API key 應為 siteClient
+      'ownerPhone': widget.site['siteClientPhoneNumber'] ?? '未提供', // [修正] 業主電話，API key 應為 siteClientPhoneNumber
+      'project': widget.site['siteProperty'] ?? '未提供', // [修正] 建案，API key 應為 siteProperty
+      'contractorName': widget.site['siteOwner'] ?? '未提供', // [修正] 發包人名稱，API key 應為 siteOwner
+      'contractorPhone': widget.site['siteOwnerPhoneNumber'] ?? '未提供', // [修正] 發包人電話，API key 應為 siteOwnerPhoneNumber
+      'orderDate': widget.site['siteOrderBegeingDate']?.toString() ?? '未提供', // [修正] 日期，並轉為字串
+      'duration': widget.site['siteOrderExecuteTime']?.toString() ?? '未提供', // [修正] 工期，並轉為字串
+      'sellingPrice': widget.site['price']?.toString() ?? '未提供', // [修正] 售價，並轉為字串
+    };
+  }
 
   // 儲存各標籤的圖片清單 (1~5)
   final Map<int, List<dynamic>> _tabImages = {
@@ -684,18 +695,15 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
     bool isEditing = false;
     final ownerNameCtrl = TextEditingController(text: _siteDetails['ownerName']);
     final ownerPhoneCtrl = TextEditingController(text: _siteDetails['ownerPhone']);
-    final accessControlCtrl = TextEditingController(text: _siteDetails['accessControl']);
     final siteNameCtrl = TextEditingController(text: _siteDetails['siteName']);
     final siteAddressCtrl = TextEditingController(text: _siteDetails['siteAddress']);
     final projectCtrl = TextEditingController(text: _siteDetails['project']);
     final contractorNameCtrl = TextEditingController(text: _siteDetails['contractorName']);
     final contractorPhoneCtrl = TextEditingController(text: _siteDetails['contractorPhone']);
-    final budgetCtrl = TextEditingController(text: _siteDetails['budget']);
     final orderDateCtrl = TextEditingController(text: _siteDetails['orderDate']);
     final durationCtrl = TextEditingController(text: _siteDetails['duration']);
     final sellingPriceCtrl = TextEditingController(text: _siteDetails['sellingPrice']);
     final notesCtrl = TextEditingController(text: _siteDetails['notes']);
-    String? selectedConstructionItem = _siteDetails['constructionItem'];
 
     showModalBottomSheet(
       context: context,
@@ -748,8 +756,6 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             const SizedBox(height: 12),
                             _buildEditTextField(ownerPhoneCtrl, '業主手機號碼', Icons.phone_outlined, keyboardType: TextInputType.phone, readOnly: !isEditing),
                             const SizedBox(height: 12),
-                            _buildEditTextField(accessControlCtrl, '門禁', Icons.vpn_key_outlined, readOnly: !isEditing),
-                            const SizedBox(height: 12),
                             _buildEditTextField(siteNameCtrl, '工地名稱', Icons.work_outline, readOnly: !isEditing),
                             const SizedBox(height: 12),
                             _buildEditTextField(siteAddressCtrl, '工地地址', Icons.location_on_outlined, readOnly: !isEditing),
@@ -759,14 +765,6 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             _buildEditTextField(contractorNameCtrl, '發包人名稱', Icons.handshake_outlined, readOnly: !isEditing),
                             const SizedBox(height: 12),
                             _buildEditTextField(contractorPhoneCtrl, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditDropdownField(
-                              '施工項目', Icons.category_outlined, 
-                              ['水電工程', '木作工程', '泥作工程', '油漆工程', '空調工程', '清潔工程', '其他'], 
-                              selectedConstructionItem, isEditing ? (val) => setModalState(() => selectedConstructionItem = val) : null
-                            ),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(budgetCtrl, '預算金額', Icons.attach_money_outlined, keyboardType: TextInputType.number, readOnly: !isEditing),
                             const SizedBox(height: 12),
                             _buildEditTextField(orderDateCtrl, '訂單日期', Icons.calendar_today_outlined, readOnly: true, onTap: isEditing ? () async {
                               final picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
@@ -788,21 +786,16 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                                         // 返回檢視模式並還原資料
                                         ownerNameCtrl.text = _siteDetails['ownerName'];
                                         ownerPhoneCtrl.text = _siteDetails['ownerPhone'];
-                                        accessControlCtrl.text = _siteDetails['accessControl'];
                                         siteNameCtrl.text = _siteDetails['siteName'];
                                         siteAddressCtrl.text = _siteDetails['siteAddress'];
                                         projectCtrl.text = _siteDetails['project'];
                                         contractorNameCtrl.text = _siteDetails['contractorName'];
                                         contractorPhoneCtrl.text = _siteDetails['contractorPhone'];
-                                        budgetCtrl.text = _siteDetails['budget'];
                                         orderDateCtrl.text = _siteDetails['orderDate'];
                                         durationCtrl.text = _siteDetails['duration'];
                                         sellingPriceCtrl.text = _siteDetails['sellingPrice'];
-                                        notesCtrl.text = _siteDetails['notes'];
-                                        setModalState(() {
-                                          selectedConstructionItem = _siteDetails['constructionItem'];
-                                          isEditing = false;
-                                        });
+                                        notesCtrl.text = _siteDetails['note'];
+                                        setModalState(() => isEditing = false);
                                       },
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: const Color(0xFF8A94A6),
@@ -816,8 +809,8 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: ElevatedButton(
-                                      onPressed: () {
-                                        setState(() => _siteDetails = { 'ownerName': ownerNameCtrl.text, 'ownerPhone': ownerPhoneCtrl.text, 'accessControl': accessControlCtrl.text, 'siteName': siteNameCtrl.text, 'siteAddress': siteAddressCtrl.text, 'project': projectCtrl.text, 'contractorName': contractorNameCtrl.text, 'contractorPhone': contractorPhoneCtrl.text, 'constructionItem': selectedConstructionItem, 'budget': budgetCtrl.text, 'orderDate': orderDateCtrl.text, 'duration': durationCtrl.text, 'sellingPrice': sellingPriceCtrl.text, 'notes': notesCtrl.text });
+                                      onPressed: () { // 移除 accessControl, constructionItem, budget
+                                        setState(() => _siteDetails = { 'ownerName': ownerNameCtrl.text, 'ownerPhone': ownerPhoneCtrl.text, 'siteName': siteNameCtrl.text, 'siteAddress': siteAddressCtrl.text, 'project': projectCtrl.text, 'contractorName': contractorNameCtrl.text, 'contractorPhone': contractorPhoneCtrl.text, 'orderDate': orderDateCtrl.text, 'duration': durationCtrl.text, 'sellingPrice': sellingPriceCtrl.text, 'notes': notesCtrl.text });
                                         setModalState(() => isEditing = false);
                                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('工地資料已更新')));
                                       },
@@ -871,7 +864,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
         backgroundColor: const Color(0xFF121824), // 深色背景
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('工地資料', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(_siteDetails['siteName'] ?? '工地資料', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),

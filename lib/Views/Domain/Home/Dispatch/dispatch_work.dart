@@ -3,13 +3,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../API/Team_api.dart';
 
 class DispatchDialog extends StatefulWidget {
-  const DispatchDialog({super.key});
+  final List<Map<String, String>> members; // 修改：用於接收外部傳入的成員列表 (UUID, Name)
+  final List<Map<String, String>> sites;    // 新增：用於接收外部傳入的工地列表 (UUID, Name)
+  const DispatchDialog({super.key, required this.members, required this.sites});
 
   // 提供一個靜態方法方便外部直接呼叫開啟對話框
-  static void show(BuildContext context) {
+  static void show(BuildContext context, {required List<Map<String, String>> members, required List<Map<String, String>> sites}) {
     showDialog(
       context: context,
-      builder: (ctx) => const DispatchDialog(),
+      builder: (ctx) => DispatchDialog(members: members, sites: sites),
     );
   }
 
@@ -17,8 +19,8 @@ class DispatchDialog extends StatefulWidget {
   State<DispatchDialog> createState() => _DispatchDialogState();
 }
 
-class _DispatchDialogState extends State<DispatchDialog> {
-  String? selectedSite;
+class _DispatchDialogState extends State<DispatchDialog> { // 修改：selectedSite 儲存 UUID
+  String? selectedSiteId; // 儲存選中的工地 UUID
   List<String> selectedEmployees = [];
   final TextEditingController notesController = TextEditingController();
   final TextEditingController constructionItemController = TextEditingController(); // 新增：施工項目控制器
@@ -30,31 +32,13 @@ class _DispatchDialogState extends State<DispatchDialog> {
   TimeOfDay? _startTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay? _endTime = const TimeOfDay(hour: 17, minute: 0);
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
-  late Future<List<String>> teamMembersFuture;
-
-  // 模擬資料列表
-  final List<String> availableSites = ['中山區辦公大樓空調維護', '信義區百貨管線重整', '大安區豪宅裝潢工程'];
 
   @override
   void initState() {
     super.initState();
-    teamMembersFuture = _fetchTeamMembers(); // 動態取得當前團隊的真實成員名單
-  }
-
-  // 從本機讀取當前團隊 ID 並取得成員資料
-  Future<List<String>> _fetchTeamMembers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final teamId = prefs.getString('active_team_uuid');
-    if (teamId == null || teamId.isEmpty) return [];
-
-    final rawMembers = await TeamApiService.getMemberTeam(teamId);
-    if (rawMembers == null) return [];
-
-    return rawMembers.map((m) {
-      final profile = m['profile'] ?? {};
-      // 解析後端傳來的名字，兼容大小寫
-      return (profile['name'] ?? profile['Name'] ?? '未命名').toString();
-    }).toList();
+    // 檢查收到的成員和工地資料
+    debugPrint('DispatchDialog received members: ${widget.members}');
+    debugPrint('DispatchDialog received sites: ${widget.sites}');
   }
 
   @override
@@ -87,7 +71,7 @@ class _DispatchDialogState extends State<DispatchDialog> {
                     const Text('選擇派工工地', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: selectedSite,
+                      value: selectedSiteId, // 使用 selectedSiteId
                       dropdownColor: const Color(0xFF121824),
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
@@ -97,12 +81,12 @@ class _DispatchDialogState extends State<DispatchDialog> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                       hint: const Text('請選擇工地', style: TextStyle(color: Color(0xFF8A94A6))),
-                      items: availableSites.map((site) {
-                        return DropdownMenuItem(value: site, child: Text(site));
+                      items: widget.sites.map((site) {
+                        return DropdownMenuItem(value: site['id'], child: Text(site['name'] ?? '未知工地')); // 防範 site['name'] 為 null
                       }).toList(),
                       onChanged: (val) {
                         setState(() {
-                          selectedSite = val;
+                          selectedSiteId = val;
                         });
                       },
                     ),
@@ -195,21 +179,21 @@ class _DispatchDialogState extends State<DispatchDialog> {
                     const SizedBox(height: 20),
                     const Text('選擇派工人員 (可多選)', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
                     const SizedBox(height: 8),
-                    FutureBuilder<List<String>>(
-                      future: teamMembersFuture,
+                    FutureBuilder<List<String>>( // 使用 Future.value 來處理傳入的成員列表
+                      future: Future.value(widget.members.map((m) => m['name'] ?? '未知成員').toList()), // 防範 m['name'] 為 null
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(color: Color(0xFFE5BA73), strokeWidth: 2.0)));
                         }
                         if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Text('目前無可派工之團隊成員或無法載入', style: TextStyle(color: Colors.redAccent, fontSize: 13));
+                          return const Text('目前無可派工之團隊成員', style: TextStyle(color: Colors.redAccent, fontSize: 13));
                         }
 
                         final availableEmployees = snapshot.data!;
 
                         return Wrap(
                           spacing: 8.0,
-                          runSpacing: 8.0,
+                          runSpacing: 8.0, // 增加行間距
                           children: availableEmployees.map((emp) {
                             final isSelected = selectedEmployees.contains(emp);
                             return FilterChip(
@@ -285,11 +269,11 @@ class _DispatchDialogState extends State<DispatchDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6))),
+          child: const Text('取消', style: TextStyle(color: Color(0xFF8A94A6), fontWeight: FontWeight.bold)),
         ),
         ElevatedButton(
           onPressed: () {
-            if (selectedSite == null) {
+            if (selectedSiteId == null) { // 檢查 selectedSiteId
               setState(() => _errorMessage = '請選擇工地');
               return;
             }
@@ -305,9 +289,12 @@ class _DispatchDialogState extends State<DispatchDialog> {
               setState(() => _errorMessage = '請至少選擇一位員工');
               return;
             }
+            // 這裡可以處理派工邏輯，例如呼叫 API
+            final selectedSiteName = widget.sites.firstWhere((s) => s['id'] == selectedSiteId, orElse: () => {'id': '', 'name': '未知工地'})['name'] ?? '未知工地'; // 防範找不到工地或工地名稱為 null
+
             setState(() => _errorMessage = null); // 清除錯誤提示
             Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功派工 ${selectedEmployees.length} 人至 $selectedSite\n日期：${dateController.text} ${startTimeController.text} - ${endTimeController.text}')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功派工 ${selectedEmployees.length} 人至 $selectedSiteName\n日期：${dateController.text} ${startTimeController.text} - ${endTimeController.text}')));
           },
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black),
           child: const Text('確認派工', style: TextStyle(fontWeight: FontWeight.bold)),

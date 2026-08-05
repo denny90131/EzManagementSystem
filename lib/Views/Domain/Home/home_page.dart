@@ -11,7 +11,7 @@ import '../../../API/Subscribe_api.dart'; // 引入訂閱 API
 import '../../../API/Team_api.dart'; // 引入團隊 API
 import 'Setting/settings_sheet.dart'; // 引入獨立的底部選單元件
 import 'ConstructionSite/add_construction.dart'; // 引入新增工地的獨立對話框
-import 'ConstructionSite/details_construction.dart'; // 引入工地詳情頁面
+import 'ConstructionSite/Construction_Site_Details.dart'; // 引入重構後的工地列表 Widget
 import 'Dispatch/dispatch_work.dart'; // 引入派工的獨立對話框
 
 class HomePage extends StatefulWidget {
@@ -87,6 +87,27 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _searchController.addListener(_filterSites);
   }
 
+  // 根據搜尋框內容過濾工地列表
+  void _filterSites() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredSites = List<Map<String, dynamic>>.from(_sites);
+      } else {
+        _filteredSites = _sites.where((site) {
+          final siteName = (site['siteName'] ?? '').toString().toLowerCase();
+          final siteAddress = (site['siteAddress'] ?? '').toString().toLowerCase();
+          final siteOwner = (site['siteOwner'] ?? '').toString().toLowerCase();
+          final siteClient = (site['siteClient'] ?? '').toString().toLowerCase();
+          return siteName.contains(query) || 
+                siteAddress.contains(query) || 
+                siteOwner.contains(query) ||
+                siteClient.contains(query);
+        }).toList();
+      }
+    });
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -101,6 +122,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
       final activeTeamId = prefs.getString('active_team_uuid');
+      debugPrint('[_fetchData] Active Team ID from SharedPreferences: $activeTeamId');
       
       // 1. 準備所有 API 請求 (此時不使用 await，讓它們不阻塞)
       final hasTeam = activeTeamId != null && activeTeamId.isNotEmpty;
@@ -130,16 +152,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final sites = results[1];
       final activePlan = results[2];
       final userData = results[3];
+      debugPrint('[_fetchData] Raw sites data from API: $sites');
       final status = results[4];
       final teamsData = results[5]; // 取出團隊清單資料
 
       // 🚀 將非同步的 await 移出 setState 之外
       // 等待 compute 在背景把成員名單與 Base64 圖片都解析完畢
       List<Map<String, dynamic>> parsedMembers = [];
-      if (hasTeam && members != null) {
-        parsedMembers = await compute(_parseTeamMembersInBackground, members as List);
-      }
-      if (hasTeam && members != null && members is List) {
+      if (hasTeam && members is List) { // 確保 members 是 List 且有團隊時才執行
         parsedMembers = await compute(_parseTeamMembersInBackground, members);
       }
       if (!mounted) return;
@@ -168,20 +188,33 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         // 如果一開始未選擇過團隊但清單有資料，自動選中第一筆並抓取團隊資料
         if (_selectedTeamId == null && _userTeams.isNotEmpty) {
           _selectedTeamId = _userTeams.first['id'];
-          prefs.setString('active_team_uuid', _selectedTeamId!);
-          Future.microtask(() => _fetchData(fetchUser: false));
+          // 這裡不能直接 setState，因為接下來的 await 會導致錯誤。
+          // 我們在 setState 外處理異步操作，然後重新觸發資料抓取。
         }
 
+      });
+
+      if (activeTeamId == null && _userTeams.isNotEmpty) {
+        debugPrint('[_fetchData] No active team selected, setting to first team: ${_userTeams.first['id']}');
+        await prefs.setString('active_team_uuid', _userTeams.first['id']!);
+        _fetchData(fetchUser: false);
+        return; // 終止當次執行，等待下一次完整的 _fetchData
+      }
+
+      setState(() {
         // ===== 處理團隊成員資料 =====
         if (hasTeam) {
           _isSubscribed = activePlan != null && (activePlan as dynamic).remainingDays > 0;
           _teamMembers = parsedMembers; // 直接賦予已在背景運算完成的資料
           // 檢查 sites 是否為 List 型別，避免型別轉換錯誤ß
+          debugPrint('[_fetchData] Processing sites data. Is sites a List? ${sites is List}');
           if (sites != null && sites is List) {
             _sites = List<Map<String, dynamic>>.from(sites);
             _filteredSites = _sites; // 初始狀態下，過濾列表等於完整列表
+            _filterSites(); // 👈 強制重新執行過濾邏輯以同步畫面
           } else {
             _sites = [];
+            debugPrint('[_fetchData] Sites data is null or not a List. _sites set to empty.');
           }
         } else {
           _sites = [];
@@ -189,6 +222,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _isSubscribed = false;
         }
         _updateAttendanceAnimation(); // 資料載入完畢，更新出勤率動畫
+        debugPrint('[_fetchData] Number of sites after processing: ${_sites.length}');
 
         // ===== 處理使用者資料 =====
         if (shouldFetchUser) {
@@ -230,18 +264,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  // 根據搜尋框內容過濾工地列表
-  void _filterSites() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredSites = _sites.where((site) {
-        final siteName = (site['siteName'] ?? '').toLowerCase();
-        final siteAddress = (site['siteAddress'] ?? '').toLowerCase();
-        final siteOwner = (site['siteOwner'] ?? '').toLowerCase();
-        return siteName.contains(query) || siteAddress.contains(query) || siteOwner.contains(query);
-      }).toList();
-    });
-  }
   // 動態更新出勤率動畫
   void _updateAttendanceAnimation() {
     final workingCount = _teamMembers.where((m) => m['isWorking'] == true).length;
@@ -302,6 +324,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
+  // 案件詳細資訊列 (從 ConstructionSiteList 移回，供員工詳情彈窗共用)
+  Widget _buildCaseInfoRow(IconData icon, String text, [Color? iconColor]) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: iconColor ?? const Color(0xFF8A94A6)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(text, style: const TextStyle(color: Color(0xFF8A94A6), height: 1.4, fontSize: 14)),
+        ),
+      ],
+    );
+  }
+
   // 管理模組項目 (蜂巢六角形)
   Widget _buildHoneycombModule(String label, IconData icon, Color color) {
     return Expanded(
@@ -333,20 +369,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ),
       ),
-    );
-  }
-
-  // 案件詳細資訊列
-  Widget _buildCaseInfoRow(IconData icon, String text, [Color? iconColor]) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: iconColor ?? const Color(0xFF8A94A6)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(text, style: const TextStyle(color: Color(0xFF8A94A6), height: 1.4, fontSize: 14)),
-        ),
-      ],
     );
   }
 
@@ -597,7 +619,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
-                        onPressed: () => DispatchDialog.show(context), // 呼叫獨立的靜態方法
+                        onPressed: () => DispatchDialog.show(
+                          context,
+                              members: _teamMembers.map((m) { // 👈 移除 =>，改用標準大括號區塊
+                          debugPrint('[DispatchDialog] Member data before sending: $m');
+                          return {
+                            'id': m['memberUUID']?.toString() ?? '', 
+                            'name': m['name']?.toString() ?? '', 
+                          };
+                        }).toList(),
+                          sites: _sites.map((s) => {
+                            'id': s['siteUUID']?.toString() ?? '', // 安全地轉換為 String，避免 null
+                            'name': s['siteName']?.toString() ?? '', // 安全地轉換為 String，避免 null
+                          }).toList(),
+                        ),
                         icon: const Icon(Icons.assignment_ind_outlined, size: 16, color: Colors.black),
                         label: const Text('派工', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
                         style: ElevatedButton.styleFrom(
@@ -708,203 +743,108 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-              
-              // 5. 員工狀態 (待命/工作中)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text('員工狀態', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text('$workingCount / ${_teamMembers.length} ', style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 14, fontWeight: FontWeight.bold)),
+                  // 5. 員工狀態 (待命/工作中)
+                  _buildEmployeeStatusSection(workingCount),
+                  const SizedBox(height: 24),
+                  ConstructionSiteList(
+                    sites: _sites,
+                    filteredSites: _filteredSites,
+                    searchController: _searchController,
+                    isLoading: _isLoading,
+                  ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              _isLoading
-                  ? const SizedBox(
-                      height: 64,
-                      child: Center(child: CircularProgressIndicator(color: Color(0xFFE5BA73))), // 載入中動畫
-                    )
-                  : _teamMembers.isEmpty
-                      ? const SizedBox(
-                          height: 64,
-                          child: Center(child: Text('目前團隊無成員', style: TextStyle(color: Color(0xFF8A94A6)))),
-                        )
-                      : SizedBox(
-                      height: 64, // 增加一點高度容納卡片框
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _teamMembers.length,
-                        separatorBuilder: (context, index) => const SizedBox(width: 16),
-                        itemBuilder: (context, index) {
-                          final member = _teamMembers[index];
-                          final isWorking = member['isWorking'] == true;
-                          String avatarChar = member['name'].toString().isNotEmpty ? member['name'].toString().substring(0, 1) : '?';
-                          final Uint8List? pictureBytes = member['pictureBytes'];
-                          
-                          return GestureDetector(
-                            onTap: () => _showEmployeeDetails(context, member, isWorking),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1A2232), // 獨立深色卡片
-                                borderRadius: BorderRadius.circular(32), // 膠囊圓角
-                                border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.2)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: isWorking ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                                    backgroundImage: pictureBytes != null ? MemoryImage(pictureBytes) : null,
-                                    child: pictureBytes == null ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)) : null,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(member['name'], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        isWorking ? '施工中' : '待命',
-                                        style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-              const SizedBox(height: 24),
-              
-              // 6. 即將到來案件 (點擊進入詳細頁面)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('案件', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text('共 ${_filteredSites.length} 件', style: const TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // 搜尋框
-              TextField(
-                controller: _searchController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: '搜尋工地名稱、地址或業主...',
-                  hintStyle: const TextStyle(color: Color(0xFF8A94A6)),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF8A94A6)),
-                  suffixIcon: _searchController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, color: Color(0xFF8A94A6)), onPressed: () => _searchController.clear()) : null,
-                  filled: true,
-                  fillColor: const Color(0xFF1A2232),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // 工地列表
-              _isLoading
-                  ? const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 40.0), child: CircularProgressIndicator(color: Color(0xFFE5BA73))))
-                  : _filteredSites.isEmpty
-                      ? Container(
-                          margin: const EdgeInsets.only(bottom: 80),
-                          padding: const EdgeInsets.symmetric(vertical: 40),
-                          decoration: BoxDecoration(color: const Color(0xFF1A2232), borderRadius: BorderRadius.circular(16)),
-                          child: Center(child: Text(_sites.isEmpty ? '目前尚無工地案件' : '找不到符合條件的案件', style: const TextStyle(color: Color(0xFF8A94A6)))),
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.only(bottom: 80.0),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _filteredSites.length,
-                            itemBuilder: (context, index) {
-                              final site = _filteredSites[index];
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1A2232),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.3), width: 1.5),
-                                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CaseDetailPage())),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(20.0),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(child: Text(site['siteName'] ?? '未命名工地', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
-                                              const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF8A94A6)),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 16),
-                                          _buildCaseInfoRow(Icons.location_on, site['siteAddress'] ?? '無地址資訊', Colors.red.shade400),
-                                          const SizedBox(height: 10),
-                                          _buildCaseInfoRow(Icons.person, '業主: ${site['siteOwner'] ?? '-'}', Colors.blue.shade400),
-                                          const SizedBox(height: 10),
-                                          _buildCaseInfoRow(Icons.note_alt_outlined, '備註: ${site['note'] ?? '-'}', Colors.green.shade400),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-            ],
-          ),
-        ), // 補上 Padding 的結尾括號
-                  ],
-                ),
               ),
             ),
-          ), // 補上 Expanded 的結尾括號
           ],
         ),
-      );
+      ),
+    ),
+  ),
+      ],
+    ),
+  );
+}
+
+  // 抽取出員工狀態區塊，讓 build 方法更簡潔
+  Widget _buildEmployeeStatusSection(int workingCount) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Text('員工狀態', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text('$workingCount / ${_teamMembers.length} ', style: const TextStyle(color: Color(0xFFE5BA73), fontSize: 14, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _isLoading
+            ? const SizedBox(
+                height: 64,
+                child: Center(child: CircularProgressIndicator(color: Color(0xFFE5BA73))), // 載入中動畫
+              )
+            : _teamMembers.isEmpty
+                ? const SizedBox(
+                    height: 64,
+                    child: Center(child: Text('目前團隊無成員', style: TextStyle(color: Color(0xFF8A94A6)))),
+                  )
+                : SizedBox(
+                    height: 64, // 增加一點高度容納卡片框
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _teamMembers.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 16),
+                      itemBuilder: (context, index) {
+                        final member = _teamMembers[index];
+                        final isWorking = member['isWorking'] == true;
+                        String avatarChar = member['name'].toString().isNotEmpty ? member['name'].toString().substring(0, 1) : '?';
+                        final Uint8List? pictureBytes = member['pictureBytes'];
+                        
+                        return GestureDetector(
+                          onTap: () => _showEmployeeDetails(context, member, isWorking),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A2232), // 獨立深色卡片
+                              borderRadius: BorderRadius.circular(32), // 膠囊圓角
+                              border: Border.all(color: const Color(0xFFE5BA73).withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: isWorking ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                                  backgroundImage: pictureBytes != null ? MemoryImage(pictureBytes) : null,
+                                  child: pictureBytes == null ? Text(avatarChar, style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)) : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(member['name'], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isWorking ? '施工中' : '待命',
+                                      style: TextStyle(color: isWorking ? Colors.greenAccent : Colors.orangeAccent, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+        
+      ],
+    );
   }
 }
-
-// 🚀 放在檔案最底部的頂層函數，專門用來在背景 Isolate 處理耗時的 List 與 Base64 轉換
-List<Map<String, dynamic>> _parseTeamMembersInBackground(List<dynamic> members) {
-  return members.map<Map<String, dynamic>>((m) {
-    final profile = m['profile'] ?? {};
-    final teamInfo = m['teamInfo'] ?? m['TeamInfo'] ?? {};
-    
-    Uint8List? picBytes;
-    final picStr = profile['picture'] ?? profile['Picture'];
-    if (picStr != null && picStr.toString().isNotEmpty) {
-      try { picBytes = base64Decode(picStr.toString().split(',').last.replaceAll(RegExp(r'\s+'), '')); } catch (_) {}
-    }
-
-    return {
-      'name': profile['name'] ?? profile['Name'] ?? '未命名',
-      'picture': profile['picture'] ?? profile['Picture'],
-      'pictureBytes': picBytes, // 存入已解析的圖片
-      'phone': profile['phoneNumber'] ?? profile['PhoneNumber'] ?? '無',
-      'iceName': profile['iceName'] ?? profile['ICEName'] ?? '無',
-      'icePhone': profile['icePhoneNumber'] ?? profile['ICEPhoneNumber'] ?? '無',
-      'iceRelation': profile['iceRelation'] ?? profile['ICERelation'] ?? '',
-      'teamNote': teamInfo['note'] ?? teamInfo['Note'] ?? '', 
-      'personalNote': profile['note'] ?? profile['Note'] ?? '',
-      'isWorking': false,
-    };
-  }).toList();
-}
-
+              
 // --- 汽車儀表板風格出勤率 ---
 class _DashboardGaugePainter extends CustomPainter {
   final double progress;
@@ -980,4 +920,35 @@ class _HoneycombPainter extends CustomPainter {
   bool shouldRepaint(covariant _HoneycombPainter oldDelegate) {
     return oldDelegate.borderColor != borderColor || oldDelegate.backgroundColor != backgroundColor;
   }
+}
+
+// 🚀 放在檔案最底部的頂層函數，專門用來在背景 Isolate 處理耗時的 List 與 Base64 轉換
+List<Map<String, dynamic>> _parseTeamMembersInBackground(List<dynamic> members) {
+  return members.map<Map<String, dynamic>>((m) {
+    
+    final profile = m['profile'] ?? {};
+    final teamInfo = m['teamInfo'] ?? m['TeamInfo'] ?? {};
+    
+    Uint8List? picBytes;
+    final picStr = profile['picture'] ?? profile['Picture'];
+    if (picStr != null && picStr.toString().isNotEmpty) {
+      try { picBytes = base64Decode(picStr.toString().split(',').last.replaceAll(RegExp(r'\s+'), '')); } catch (_) {}
+    }
+    
+    final String extractedMemberUUID = teamInfo['memberUUID'] ?? teamInfo['MemberUUID'] ?? m['MemberUUID'] ?? m['memberUUID'] ?? ''; // 🚀 優先從 teamInfo 中提取 memberUUID
+    debugPrint('[_parseTeamMembersInBackground] Extracted memberUUID: $extractedMemberUUID'); // 🚀 檢查提取到的 memberUUID
+    return {
+      'memberUUID': extractedMemberUUID, // 確保 MemberUUID 被解析並加入，並使用小寫鍵名
+      'name': profile['name'] ?? profile['Name'] ?? '未命名',
+      'picture': profile['picture'] ?? profile['Picture'],
+      'pictureBytes': picBytes, // 存入已解析的圖片
+      'phone': profile['phoneNumber'] ?? profile['PhoneNumber'] ?? '無',
+      'iceName': profile['iceName'] ?? profile['ICEName'] ?? '無',
+      'icePhone': profile['icePhoneNumber'] ?? profile['ICEPhoneNumber'] ?? '無',
+      'iceRelation': profile['iceRelation'] ?? profile['ICERelation'] ?? '',
+      'teamNote': teamInfo['note'] ?? teamInfo['Note'] ?? '', 
+      'personalNote': profile['note'] ?? profile['Note'] ?? '',
+      'isWorking': false,
+    };
+  }).toList();
 }
