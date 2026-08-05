@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,18 +30,14 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   final TextEditingController contractorPhoneController = TextEditingController();
   final TextEditingController budgetController = TextEditingController();
   final TextEditingController orderDateController = TextEditingController(
-    text: "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}"
   );
   final TextEditingController durationController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
   final TextEditingController projectController = TextEditingController(); // 新增：建案
-  final TextEditingController accessControlController = TextEditingController(); // 新增：門禁
-  final TextEditingController parkingSpotController = TextEditingController(); // 新增：停車位
-  final TextEditingController sellingPriceController = TextEditingController(); // 新增：售價
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
-  bool _isSaving = false;
-  final TextEditingController constructionItemController = TextEditingController(); // 改為使用控制器
+  bool _isSaving = false; // 用於防止重複點擊儲存
 
+  final _formKey = GlobalKey<FormState>(); // 新增：用於表單驗證
   final ImagePicker _picker = ImagePicker();
   final List<Map<String, dynamic>> _accessControlImages = [];
   final List<Map<String, dynamic>> _parkingSpotImages = [];
@@ -58,21 +55,11 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     durationController.dispose();
     notesController.dispose();
     projectController.dispose();
-    accessControlController.dispose();
-    parkingSpotController.dispose();
-    sellingPriceController.dispose();
-    constructionItemController.dispose();
-    for (var imgData in _accessControlImages) {
-      (imgData['controller'] as TextEditingController).dispose();
-    }
-    for (var imgData in _parkingSpotImages) {
-      (imgData['controller'] as TextEditingController).dispose();
-    }
     super.dispose();
   }
 
-  Widget _buildDialogTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false, VoidCallback? onTap}) {
-    return _buildCustomTextField(controller: controller, label: label, icon: icon, maxLines: maxLines, keyboardType: keyboardType, readOnly: readOnly, onTap: onTap);
+  Widget _buildDialogTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false, VoidCallback? onTap, bool isRequired = false, List<TextInputFormatter>? inputFormatters}) {
+    return _buildCustomTextField(controller: controller, label: label, icon: icon, maxLines: maxLines, keyboardType: keyboardType, readOnly: readOnly, onTap: onTap, isRequired: isRequired, inputFormatters: inputFormatters);
   }
 
   // 建立一個更通用的 TextField Builder，方便加入 suffixIcon
@@ -84,14 +71,36 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     TextInputType? keyboardType,
     bool readOnly = false,
     VoidCallback? onTap,
+    bool isRequired = false, // 新增 isRequired 參數
     Widget? suffixIcon,
+    List<TextInputFormatter>? inputFormatters, // 新增：輸入格式化工具
   }) {
-    return TextField(
+    return TextFormField( // Changed from TextField to TextFormField
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
       readOnly: readOnly,
+      inputFormatters: inputFormatters, // 新增：套用輸入格式
       onTap: onTap,
+      validator: (value) {
+        if (isRequired && (value == null || value.trim().isEmpty)) {
+          return '請輸入$label';
+        }
+        // 手機號碼格式驗證 (09開頭，共10碼)
+        if (keyboardType == TextInputType.phone && value != null && value.trim().isNotEmpty) {
+          final phoneRegExp = RegExp(r'^09\d{8}$');
+          if (!phoneRegExp.hasMatch(value.trim())) {
+            return '請輸入有效的10碼手機號碼';
+          }
+        }
+        // 數字驗證
+        if (keyboardType == TextInputType.number && value != null && value.trim().isNotEmpty) {
+          if (num.tryParse(value.trim()) == null) {
+            return '請輸入有效的數字';
+          }
+        }
+        return null;
+      },
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
@@ -103,6 +112,31 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
       ),
+    );
+  }
+
+  // 新增：下拉式選單輔助元件
+  Widget _buildDialogDropdownField(String label, IconData icon, List<String> items, String? value, ValueChanged<String?> onChanged, {bool isRequired = false}) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      dropdownColor: const Color(0xFF1A2232),
+      onChanged: onChanged,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
+        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
+        filled: true,
+        fillColor: const Color(0xFF121824),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+      ),
+      validator: isRequired
+          ? (val) => (val == null || val.isEmpty) ? '請選擇$label' : null
+          : null,
+      items: items.map((String item) {
+        return DropdownMenuItem<String>(value: item, child: Text(item));
+      }).toList(),
     );
   }
 
@@ -138,7 +172,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       if (source == ImageSource.gallery) {
         final List<XFile> images = await _picker.pickMultiImage();
         if (images.isNotEmpty) {
-          final newImages = images.map((file) => {'file': file, 'controller': TextEditingController()}).toList();
+          final newImages = images.map((file) => {'file': file}).toList();
           setState(() {
             if (isForAccessControl) {
               _accessControlImages.addAll(newImages);
@@ -150,7 +184,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       } else {
         final XFile? image = await _picker.pickImage(source: source);
         if (image != null) {
-          final newImage = {'file': image, 'controller': TextEditingController()};
+          final newImage = {'file': image};
           setState(() {
             if (isForAccessControl) {
               _accessControlImages.add(newImage);
@@ -166,8 +200,8 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   }
 
   Future<void> _submit() async {
-    if (siteNameController.text.trim().isEmpty) {
-      setState(() => _errorMessage = '請填寫工地名稱');
+    if (!_formKey.currentState!.validate()) { // 觸發所有表單欄位的驗證
+      setState(() => _errorMessage = '請確認資訊是否填寫完畢');
       return;
     }
 
@@ -190,22 +224,20 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       List<Map<String, String>> sources = [];
       for (var imgData in _accessControlImages) {
         final file = imgData['file'] as XFile;
-        final controller = imgData['controller'] as TextEditingController;
         final bytes = await file.readAsBytes();
         sources.add({
-          "sourceType": "image",
+          "sourceType": "門禁",
           "source": base64Encode(bytes),
-          "note": "門禁照片: ${controller.text.trim()}",
+          "note": "",
         });
       }
       for (var imgData in _parkingSpotImages) {
         final file = imgData['file'] as XFile;
-        final controller = imgData['controller'] as TextEditingController;
         final bytes = await file.readAsBytes();
         sources.add({
-          "sourceType": "image",
+          "sourceType": "停車位",
           "source": base64Encode(bytes),
-          "note": "停車位照片: ${controller.text.trim()}",
+          "note": "",
         });
       }
 
@@ -219,10 +251,9 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
         siteClient: contractorNameController.text.trim(),
         siteClientPhoneNumber: contractorPhoneController.text.trim(),
         price: int.tryParse(budgetController.text.trim()),
-        siteOrderBegeingDate: orderDateController.text.isNotEmpty ? "${orderDateController.text.trim()}T00:00:00" : null,
+        siteOrderBegeingDate: orderDateController.text.trim().isNotEmpty ? "${orderDateController.text.trim()}T00:00:00" : null,
         siteOrderExecuteTime: int.tryParse(durationController.text.trim()),
-        siteProperty: constructionItemController.text.trim(),
-        note: notesController.text.trim(),
+        note: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
         sources: sources.isEmpty ? null : sources,
       );
 
@@ -248,92 +279,89 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       title: const Text('新增工地', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildDialogTextField(ownerNameController, '業主名稱', Icons.person_outline),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(ownerPhoneController, '業主手機號碼', Icons.phone_outlined, keyboardType: TextInputType.phone),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(siteNameController, '工地名稱', Icons.work_outline),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(siteAddressController, '工地地址', Icons.location_on_outlined),
-                    const SizedBox(height: 12),
-                    _buildCustomTextField(
-                      controller: accessControlController,
-                      label: '門禁/鑰匙',
-                      icon: Icons.vpn_key_outlined,
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)),
-                        onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, true)),
+        child: Form( // 包裹 Form 以啟用驗證
+          key: _formKey,
+          child: Column( // Form widget requires a single child, typically a Column or other layout widget
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildDialogTextField(ownerNameController, '業主名稱', Icons.person_outline, isRequired: true),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(ownerPhoneController, '業主手機號碼', Icons.phone_outlined, keyboardType: TextInputType.phone, isRequired: true),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(siteNameController, '工地名稱', Icons.work_outline, isRequired: true),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(siteAddressController, '工地地址', Icons.location_on_outlined, isRequired: true), // 工地地址
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(projectController, '建案', Icons.domain_outlined, isRequired: false), // 建案為選填
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(contractorNameController, '發包人名稱', Icons.handshake_outlined, isRequired: true),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(contractorPhoneController, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone, isRequired: true),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(budgetController, '預算金額', Icons.attach_money_outlined, keyboardType: TextInputType.number, isRequired: true, inputFormatters: [FilteringTextInputFormatter.digitsOnly]),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(orderDateController, '訂單日期', Icons.calendar_today_outlined, readOnly: true, onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            orderDateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                          });
+                        }
+                      }),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(durationController, '預計工期 (工作天數)', Icons.timer_outlined, keyboardType: TextInputType.number, isRequired: false, inputFormatters: [FilteringTextInputFormatter.digitsOnly]), // 預計工期為選填
+                      
+                      // --- 門禁與停車位圖片上傳區 ---
+                      const SizedBox(height: 12),
+                      const Divider(color: Colors.white24),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('門禁/鑰匙 照片', style: TextStyle(color: Color(0xFF8A94A6))),
+                          IconButton(icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)), onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, true))),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_accessControlImages.isNotEmpty)
-                      _buildImageThumbnails(_accessControlImages, (index) => setState(() => _accessControlImages.removeAt(index))),
-                    const SizedBox(height: 12),
-                    _buildCustomTextField(
-                      controller: parkingSpotController,
-                      label: '停車位',
-                      icon: Icons.local_parking_outlined,
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)),
-                        onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, false)),
+                      if (_accessControlImages.isNotEmpty) _buildImageThumbnails(_accessControlImages, (index) => setState(() => _accessControlImages.removeAt(index))),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('停車位 照片', style: TextStyle(color: Color(0xFF8A94A6))),
+                          IconButton(icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)), onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, false))),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_parkingSpotImages.isNotEmpty)
-                      _buildImageThumbnails(_parkingSpotImages, (index) => setState(() => _parkingSpotImages.removeAt(index))),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(projectController, '建案', Icons.domain_outlined),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(contractorNameController, '發包人名稱', Icons.handshake_outlined),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(contractorPhoneController, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(constructionItemController, '施工項目', Icons.category_outlined),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(sellingPriceController, '售價', Icons.sell_outlined, keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(budgetController, '預算金額', Icons.attach_money_outlined, keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(orderDateController, '訂單日期', Icons.calendar_today_outlined, readOnly: true, onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          orderDateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-                        });
-                      }
-                    }),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(durationController, '預計工期 (工作天數)', Icons.timer_outlined, keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
-                    _buildDialogTextField(notesController, '備註', Icons.note_alt_outlined, maxLines: 3),
-                  ],
+                      if (_parkingSpotImages.isNotEmpty) _buildImageThumbnails(_parkingSpotImages, (index) => setState(() => _parkingSpotImages.removeAt(index))),
+                      const SizedBox(height: 12),
+                      const Divider(color: Colors.white24),
+                      const SizedBox(height: 12),
+                      _buildDialogTextField(notesController, '備註', Icons.note_alt_outlined, maxLines: 3, isRequired: false), // 備註為選填
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold))),
-                ],
-              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold))),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -357,36 +385,15 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       runSpacing: 8,
       children: List.generate(images.length, (i) {
         final imageFile = images[i]['file'] as XFile;
-        final controller = images[i]['controller'] as TextEditingController;
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            Column(
-              children: [
-                Container(
-                  width: 80, height: 80,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    image: DecorationImage(image: FileImage(File(imageFile.path)), fit: BoxFit.cover),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: controller,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                    decoration: const InputDecoration(
-                      hintText: '備註...',
-                      hintStyle: TextStyle(color: Colors.white30, fontSize: 12),
-                      isDense: true,
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-              ],
+            Container(
+              width: 80, height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                image: DecorationImage(image: FileImage(File(imageFile.path)), fit: BoxFit.cover),
+              ),
             ),
             Positioned(
               top: -8, right: -8,
