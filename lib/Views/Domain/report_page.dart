@@ -351,37 +351,93 @@ class _ReportPageState extends State<ReportPage> {
                               if (picked != null) setModalState(() => dateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}");
                             }),
                             const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              value: selectedWeather,
-                              dropdownColor: const Color(0xFF1A2232),
-                              onChanged: (val) => setModalState(() => selectedWeather = val),
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                labelText: '天氣',
-                                labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-                                prefixIcon: const Icon(Icons.cloud_outlined, color: Color(0xFF8A94A6)),
-                                filled: true,
-                                fillColor: const Color(0xFF121824),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-                              ),
-                              items: [
-                                {'label': '晴天', 'icon': Icons.wb_sunny},
-                                {'label': '雨天', 'icon': Icons.water_drop},
-                                {'label': '雷雨交加', 'icon': Icons.thunderstorm},
-                                {'label': '龍捲風', 'icon': Icons.cyclone},
-                              ].map((opt) {
-                                return DropdownMenuItem<String>(
-                                  value: opt['label'] as String,
-                                  child: Row(
-                                    children: [
-                                      Icon(opt['icon'] as IconData, color: const Color(0xFFE5BA73), size: 20),
-                                      const SizedBox(width: 12),
-                                      Text(opt['label'] as String),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
+
+                            // DropdownButtonFormField<String>(
+                            //   value: selectedWeather,
+                            //   dropdownColor: const Color(0xFF1A2232),
+                            //   onChanged: (val) => setModalState(() => selectedWeather = val),
+                            //   style: const TextStyle(color: Colors.white),
+                            //   decoration: InputDecoration(
+                            //     labelText: '天氣',
+                            //     labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
+                            //     prefixIcon: const Icon(Icons.cloud_outlined, color: Color(0xFF8A94A6)),
+                            //     filled: true,
+                            //     fillColor: const Color(0xFF121824),
+                            //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            //     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
+                            //   ),
+                            //   items: [
+                            //     {'label': '晴天', 'icon': Icons.wb_sunny},
+                            //     {'label': '雨天', 'icon': Icons.water_drop},
+                            //     {'label': '雷雨交加', 'icon': Icons.thunderstorm},
+                            //     {'label': '龍捲風', 'icon': Icons.cyclone},
+                            //   ].map((opt) {
+                            //     return DropdownMenuItem<String>(
+                            //       value: opt['label'] as String,
+                            //       child: Row(
+                            //         children: [
+                            //           Icon(opt['icon'] as IconData, color: const Color(0xFFE5BA73), size: 20),
+                            //           const SizedBox(width: 12),
+                            //           Text(opt['label'] as String),
+                            //         ],
+                            //       ),
+                            //     );
+                            //   }).toList(),
+                            // ),
+
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 標題區域（模擬原本 InputDecoration 的 labelText 與 prefixIcon）
+                                Row(
+                                  children: const [
+                                    Icon(Icons.cloud_outlined, color: Color(0xFF8A94A6), size: 20),
+                                    SizedBox(width: 8),
+                                    Text('天氣', style: TextStyle(color: Color(0xFF8A94A6), fontSize: 14)),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+
+                                // 4 個平行的膠囊按鈕
+                                Row(
+                                  children: [
+                                    {'label': '晴天', 'icon': Icons.wb_sunny},
+                                    {'label': '雨天', 'icon': Icons.water_drop},
+                                    {'label': '雷雨交加', 'icon': Icons.thunderstorm},
+                                    {'label': '龍捲風', 'icon': Icons.cyclone},
+                                  ].map((opt) {
+                                    final String label = opt['label'] as String;
+                                    final IconData icon = opt['icon'] as IconData;
+                                    final bool isSelected = selectedWeather == label;
+
+                                    return Expanded(
+                                      child:Padding(padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                        child: InkWell(
+                                          onTap: () => setModalState(() => selectedWeather = label),
+                                          borderRadius: BorderRadius.circular(12), // 圓角 20 呈現膠囊狀
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 200),
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? const Color(0xFF1A2232) : const Color(0xFF121824),
+                                              borderRadius: BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: isSelected ? const Color(0xFFE5BA73) : Colors.transparent,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              icon,
+                                              size: 20,
+                                              color: isSelected ? const Color(0xFFE5BA73) : const Color(0xFF8A94A6),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ),
                             const Divider(height: 32, color: Colors.white12),
 
