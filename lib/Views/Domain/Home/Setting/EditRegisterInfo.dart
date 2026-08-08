@@ -352,22 +352,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   if (_selectedImage != null || (_originalPictureBase64 != null && !_isImageCleared))
                     TextButton(onPressed: () { setState(() { _selectedImage = null; _isImageCleared = true; }); }, child: const Text('清除照片', style: TextStyle(color: Colors.redAccent))),
-                  const SizedBox(height: 32),
                   
                   Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(15.0),
                     child: Form(
                       key: _formKey,
                       child: Column(
-                        children: [
-                    _buildTextField(companyController, '公司名稱', icon: Icons.business),
+                        crossAxisAlignment: CrossAxisAlignment.start, // 設定為靠左對齊
+                      children: [
+                    const Text('基本資料', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
                     _buildTextField(nameController, '姓名', icon: Icons.person, isRequired: true),
                     _buildTextField(phoneController, '手機', icon: Icons.phone, keyboardType: TextInputType.phone, isRequired: true),
-                    
                     // 密碼變為選填
                     _buildTextField(passwordController, '修改密碼 (若不更改請留空)', icon: Icons.lock, obscureText: true),
-                    
+                    _buildTextField(companyController, '公司名稱', icon: Icons.business),   
                     _buildTextField(jobTitleController, '職務', icon: Icons.work),
+                    _buildDropdownField(
+                      label: '性別',
+                      value: _selectedGender,
+                      items: ['男', '女'],
+                      icon: Icons.wc,
+                      onChanged: (val) => setState(() => _selectedGender = val),
+                    ),
+                    _buildTextField(birthdayController, '生日', icon: Icons.cake, readOnly: true, onTap: () => _selectDate(context)),
+                    _buildTextField(emailController, '聯絡信箱', icon: Icons.email, keyboardType: TextInputType.emailAddress),
+                    _buildTextField(addressController, '聯絡地址', icon: Icons.home_work),
+                    const Divider(height: 16, color: Colors.white12), // Reduced divider height
+                    const SizedBox(height: 8), // Added space after divider and before title
+                    const Text('受傷用資訊', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 24), // Increased space after title and before fields
                     _buildTextField(emergencyContactController, '緊急聯絡人', icon: Icons.contact_emergency),
                     _buildTextField(emergencyContactPhoneController, '緊急聯絡人手機', icon: Icons.phone_in_talk, keyboardType: TextInputType.phone),
                     _buildDropdownField(
@@ -377,15 +391,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       icon: Icons.people,
                       onChanged: (val) => setState(() => _selectedEmergencyContactRel = val),
                     ),
-                    const Divider(height: 32, color: Colors.white12),
-                    _buildTextField(medicalHistoryController, '遺傳病史', icon: Icons.medical_services),
-                    _buildDropdownField(
-                      label: '性別',
-                      value: _selectedGender,
-                      items: ['男', '女'],
-                      icon: Icons.wc,
-                      onChanged: (val) => setState(() => _selectedGender = val),
-                    ),
                     _buildDropdownField(
                       label: '血型',
                       value: _selectedBloodType,
@@ -393,9 +398,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       icon: Icons.bloodtype,
                       onChanged: (val) => setState(() => _selectedBloodType = val),
                     ),
-                    _buildTextField(birthdayController, '生日', icon: Icons.cake, readOnly: true, onTap: () => _selectDate(context)),
-                    _buildTextField(emailController, '聯絡信箱', icon: Icons.email, keyboardType: TextInputType.emailAddress),
-                    _buildTextField(addressController, '聯絡地址', icon: Icons.home_work),
+                    _buildTextField(medicalHistoryController, '遺傳病史', icon: Icons.medical_services),
                     
                     const SizedBox(height: 40),
                     Container(

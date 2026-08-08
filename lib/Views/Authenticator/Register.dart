@@ -306,11 +306,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const Text('基本資料', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
                           _buildTextField(nameController, '姓名', icon: Icons.person_outline, isRequired: true, focusNode: _nameFocusNode),
                           _buildTextField(phoneController, '手機', icon: Icons.phone_outlined, keyboardType: TextInputType.phone, isRequired: true, focusNode: _phoneFocusNode),
                           _buildTextField(passwordController, '密碼', icon: Icons.lock_outline, obscureText: true, isRequired: true, focusNode: _passwordFocusNode),
                           _buildTextField(companyController, '公司名稱', icon: Icons.business_outlined, focusNode: _companyFocusNode),
                           _buildTextField(jobTitleController, '職務', icon: Icons.work_outline, focusNode: _jobTitleFocusNode),
+                          _buildDropdownField(
+                            label: '性別',
+                            value: _selectedGender,
+                            items: ['男', '女'],
+                            icon: Icons.wc_outlined,
+                            focusNode: _genderFocusNode,
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedGender = val;
+                              });
+                            },
+                          ),
+                          _buildTextField(
+                            birthdayController,
+                            '生日',
+                            icon: Icons.cake_outlined,
+                            readOnly: true,
+                            focusNode: _birthdayFocusNode,
+                            onTap: () => _selectDate(context),
+                          ),
+                          _buildTextField(emailController, '聯絡信箱', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, focusNode: _emailFocusNode),
+                          _buildTextField(addressController, '聯絡地址', icon: Icons.home_work_outlined, focusNode: _addressFocusNode),
+                          const Divider(height: 20, color: Colors.white12), // 分隔線
+                          const SizedBox(height: 8), // Reduced space after divider and before title
+                          const Text('受傷用資訊', style: TextStyle(color: Color(0xFFE5BA73), fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 24), // Increased space after title and before fields
+
+                          // 受傷用資訊標題
                           _buildTextField(emergencyContactController, '緊急聯絡人', icon: Icons.contact_emergency_outlined, focusNode: _emergencyContactFocusNode),
                           _buildTextField(emergencyContactPhoneController, '緊急聯絡人手機', icon: Icons.phone_in_talk_outlined, keyboardType: TextInputType.phone, focusNode: _emergencyContactPhoneFocusNode),
                           _buildDropdownField(
@@ -322,20 +352,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             onChanged: (val) {
                               setState(() {
                                 _selectedEmergencyContactRel = val;
-                              });
-                            },
-                          ),
-                          const Divider(height: 32, color: Colors.white12), // 分隔線
-                          _buildTextField(medicalHistoryController, '遺傳病史', icon: Icons.medical_services_outlined, focusNode: _medicalHistoryFocusNode),
-                          _buildDropdownField(
-                            label: '性別',
-                            value: _selectedGender,
-                            items: ['男', '女'],
-                            icon: Icons.wc_outlined,
-                            focusNode: _genderFocusNode,
-                            onChanged: (val) {
-                              setState(() {
-                                _selectedGender = val;
                               });
                             },
                           ),
@@ -351,16 +367,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               });
                             },
                           ),
-                          _buildTextField(
-                            birthdayController,
-                            '生日',
-                            icon: Icons.cake_outlined,
-                            readOnly: true,
-                            focusNode: _birthdayFocusNode,
-                            onTap: () => _selectDate(context),
-                          ),
-                          _buildTextField(emailController, '聯絡信箱', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, focusNode: _emailFocusNode),
-                          _buildTextField(addressController, '聯絡地址', icon: Icons.home_work_outlined, focusNode: _addressFocusNode),
+                          _buildTextField(medicalHistoryController, '遺傳病史', icon: Icons.medical_services_outlined, focusNode: _medicalHistoryFocusNode),
                           
                           const SizedBox(height: 24),
                           Container(

@@ -32,8 +32,10 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   final TextEditingController orderDateController = TextEditingController(
   );
   final TextEditingController durationController = TextEditingController();
-  final TextEditingController notesController = TextEditingController();
+  final TextEditingController notesController = TextEditingController(); // 總備註
   final TextEditingController projectController = TextEditingController(); // 新增：建案
+  final TextEditingController _accessControlNoteController = TextEditingController(); // 新增：門禁/鑰匙備註
+  final TextEditingController _parkingSpotNoteController = TextEditingController(); // 新增：停車位備註
   String? _errorMessage; // 新增：用於記錄與顯示錯誤提示
   bool _isSaving = false; // 用於防止重複點擊儲存
 
@@ -41,6 +43,8 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   final ImagePicker _picker = ImagePicker();
   final List<Map<String, dynamic>> _accessControlImages = [];
   final List<Map<String, dynamic>> _parkingSpotImages = [];
+  XFile? _accessControlImageFile; // 新增：門禁/鑰匙圖片
+  XFile? _parkingSpotImageFile; // 新增：停車位圖片
 
   @override
   void dispose() {
@@ -54,6 +58,8 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     orderDateController.dispose();
     durationController.dispose();
     notesController.dispose();
+    _accessControlNoteController.dispose();
+    _parkingSpotNoteController.dispose();
     projectController.dispose();
     super.dispose();
   }
@@ -140,8 +146,8 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
     );
   }
 
-  // 顯示圖片來源選擇的 ActionSheet
-  void _showImageSourceActionSheet(BuildContext context, Function(ImageSource) onPick) {
+  // 顯示圖片來源選擇的 ActionSheet (單張圖片)
+  void _showImageSourceActionSheet(BuildContext context, Function(ImageSource) onPickImage) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A2232),
@@ -150,14 +156,14 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
           child: Wrap(
             children: [
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
-                title: const Text('從相簿選擇 (可多選)', style: TextStyle(color: Colors.white)),
-                onTap: () { Navigator.of(context).pop(); onPick(ImageSource.gallery); },
-              ),
-              ListTile(
                 leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
                 title: const Text('拍照', style: TextStyle(color: Colors.white)),
-                onTap: () { Navigator.of(context).pop(); onPick(ImageSource.camera); },
+                onTap: () { Navigator.of(context).pop(); onPickImage(ImageSource.camera); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
+                title: const Text('從相簿選擇', style: TextStyle(color: Colors.white)),
+                onTap: () { Navigator.of(context).pop(); onPickImage(ImageSource.gallery); },
               ),
             ],
           ),
@@ -165,37 +171,74 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
       },
     );
   }
-
-  // 處理選擇圖片
-  Future<void> _pickImages(ImageSource source, bool isForAccessControl) async {
+  
+  // 處理選擇單張圖片
+  Future<void> _pickImage(ImageSource source, bool isForAccessControl) async {
     try {
-      if (source == ImageSource.gallery) {
-        final List<XFile> images = await _picker.pickMultiImage();
-        if (images.isNotEmpty) {
-          final newImages = images.map((file) => {'file': file}).toList();
-          setState(() {
-            if (isForAccessControl) {
-              _accessControlImages.addAll(newImages);
-            } else {
-              _parkingSpotImages.addAll(newImages);
-            }
-          });
-        }
-      } else {
-        final XFile? image = await _picker.pickImage(source: source);
-        if (image != null) {
-          final newImage = {'file': image};
-          setState(() {
-            if (isForAccessControl) {
-              _accessControlImages.add(newImage);
-            } else {
-              _parkingSpotImages.add(newImage);
-            }
-          });
-        }
+      final XFile? image = await _picker.pickImage(source: source);
+      if (image != null) {
+        setState(() {
+          if (isForAccessControl) {
+            _accessControlImageFile = image;
+          } else {
+            _parkingSpotImageFile = image;
+          }
+        });
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法存取相機或相簿')));
+    }
+  }
+
+  // 顯示全螢幕圖片
+  void _showFullScreenImage(BuildContext context, XFile imageFile) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.black.withOpacity(0.8), // 半透明黑色背景
+          insetPadding: EdgeInsets.zero, // 讓圖片可以佔滿螢幕
+          child: Stack(
+            children: [
+              Center(
+                child: Image.file(
+                  File(imageFile.path),
+                  fit: BoxFit.contain, // 確保圖片完整顯示
+                ),
+              ),
+              Positioned(top: 16, right: 16, child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 30), onPressed: () => Navigator.of(dialogContext).pop())),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 建立圖片縮圖作為 TextField 的 suffixIcon
+  Widget? _buildImageSuffixIcon(XFile? imageFile, VoidCallback onPickImage, VoidCallback onRemoveImage) {
+    if (imageFile != null) {
+      return Padding(
+        padding: const EdgeInsets.all(4.0), // 增加一些內邊距
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            GestureDetector( // 包裹縮圖，使其可點擊放大
+              onTap: () => _showFullScreenImage(context, imageFile),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.file(File(imageFile.path), width: 40, height: 40, fit: BoxFit.cover), // 縮圖大小
+              ),
+            ),
+            GestureDetector(
+              onTap: onRemoveImage,
+              child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 0.5)), 
+              child: const Icon(Icons.close, color: Colors.white, size: 12)),
+            )
+          ],
+        ),
+      );
+    } else {
+      return IconButton(icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)), onPressed: onPickImage);
     }
   }
 
@@ -220,27 +263,34 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
         return;
       }
 
-      // 處理圖片與備註
       List<Map<String, String>> sources = [];
-      for (var imgData in _accessControlImages) {
-        final file = imgData['file'] as XFile;
-        final bytes = await file.readAsBytes();
+
+      // 處理門禁/鑰匙圖片與備註
+      if (_accessControlImageFile != null || _accessControlNoteController.text.trim().isNotEmpty) {
+        String? base64Image;
+        if (_accessControlImageFile != null) {
+          final bytes = await _accessControlImageFile!.readAsBytes();
+          base64Image = base64Encode(bytes);
+        }
         sources.add({
           "sourceType": "門禁",
-          "source": base64Encode(bytes),
-          "note": "",
+          "source": base64Image ?? "",
+          "note": _accessControlNoteController.text.trim(),
         });
       }
-      for (var imgData in _parkingSpotImages) {
-        final file = imgData['file'] as XFile;
-        final bytes = await file.readAsBytes();
+      // 處理停車位圖片與備註
+      if (_parkingSpotImageFile != null || _parkingSpotNoteController.text.trim().isNotEmpty) {
+        String? base64Image;
+        if (_parkingSpotImageFile != null) {
+          final bytes = await _parkingSpotImageFile!.readAsBytes();
+          base64Image = base64Encode(bytes);
+        }
         sources.add({
           "sourceType": "停車位",
-          "source": base64Encode(bytes),
-          "note": "",
+          "source": base64Image ?? "",
+          "note": _parkingSpotNoteController.text.trim(),
         });
       }
-
       final (errorMessage, data) = await ConstructionApiService.insertNewSite(
         teamUUID: teamUUID,
         uploadMemberUUID: memberUUID,
@@ -299,10 +349,6 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                       const SizedBox(height: 12),
                       _buildDialogTextField(projectController, '建案', Icons.domain_outlined, isRequired: false), // 建案為選填
                       const SizedBox(height: 12),
-                      _buildDialogTextField(contractorNameController, '發包人名稱', Icons.handshake_outlined, isRequired: true),
-                      const SizedBox(height: 12),
-                      _buildDialogTextField(contractorPhoneController, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone, isRequired: true),
-                      const SizedBox(height: 12),
                       _buildDialogTextField(budgetController, '預算金額', Icons.attach_money_outlined, keyboardType: TextInputType.number, isRequired: true, inputFormatters: [FilteringTextInputFormatter.digitsOnly]),
                       const SizedBox(height: 12),
                       _buildDialogTextField(orderDateController, '訂單日期', Icons.calendar_today_outlined, readOnly: true, onTap: () async {
@@ -321,27 +367,31 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                       const SizedBox(height: 12),
                       _buildDialogTextField(durationController, '預計工期 (工作天數)', Icons.timer_outlined, keyboardType: TextInputType.number, isRequired: false, inputFormatters: [FilteringTextInputFormatter.digitsOnly]), // 預計工期為選填
                       
-                      // --- 門禁與停車位圖片上傳區 ---
+                      // --- 門禁/鑰匙與停車位資訊區 ---
                       const SizedBox(height: 12),
                       const Divider(color: Colors.white24),
                       const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('門禁/鑰匙 照片', style: TextStyle(color: Color(0xFF8A94A6))),
-                          IconButton(icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)), onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, true))),
-                        ],
+                      // 門禁/鑰匙
+                      _buildCustomTextField(
+                        controller: _accessControlNoteController,
+                        label: '門禁/鑰匙',
+                        icon: Icons.vpn_key_outlined,
+                        maxLines: 1,
+                        suffixIcon: _buildImageSuffixIcon(
+                          _accessControlImageFile,
+                          () => _showImageSourceActionSheet(context, (source) => _pickImage(source, true)),
+                          () => setState(() => _accessControlImageFile = null),
+                        ),
                       ),
-                      if (_accessControlImages.isNotEmpty) _buildImageThumbnails(_accessControlImages, (index) => setState(() => _accessControlImages.removeAt(index))),
                       const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('停車位 照片', style: TextStyle(color: Color(0xFF8A94A6))),
-                          IconButton(icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)), onPressed: () => _showImageSourceActionSheet(context, (source) => _pickImages(source, false))),
-                        ],
+                      // 停車位
+                      _buildCustomTextField(
+                        controller: _parkingSpotNoteController,
+                        label: '停車位',
+                        icon: Icons.local_parking_outlined,
+                        maxLines: 1,
+                        suffixIcon: _buildImageSuffixIcon(_parkingSpotImageFile, () => _showImageSourceActionSheet(context, (source) => _pickImage(source, false)), () => setState(() => _parkingSpotImageFile = null)),
                       ),
-                      if (_parkingSpotImages.isNotEmpty) _buildImageThumbnails(_parkingSpotImages, (index) => setState(() => _parkingSpotImages.removeAt(index))),
                       const SizedBox(height: 12),
                       const Divider(color: Colors.white24),
                       const SizedBox(height: 12),
@@ -354,7 +404,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 18), // Slightly larger icon for error
                     const SizedBox(width: 6),
                     Expanded(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold))),
                   ],
@@ -376,35 +426,6 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
           child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : const Text('確認新增', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
-    );
-  }
-
-  Widget _buildImageThumbnails(List<Map<String, dynamic>> images, Function(int) onRemove) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: List.generate(images.length, (i) {
-        final imageFile = images[i]['file'] as XFile;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 80, height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                image: DecorationImage(image: FileImage(File(imageFile.path)), fit: BoxFit.cover),
-              ),
-            ),
-            Positioned(
-              top: -8, right: -8,
-              child: GestureDetector(
-                onTap: () => onRemove(i),
-                child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, color: Colors.white, size: 14)),
-              ),
-            )
-          ],
-        );
-      }),
     );
   }
 }

@@ -57,9 +57,10 @@ class ConstructionSiteList extends StatelessWidget {
           )
         else
           Padding(
-            padding: const EdgeInsets.only(bottom: 80.0),
+            padding: const EdgeInsets.only(bottom: 10.0),
             child: ListView.builder(
               shrinkWrap: true,
+              padding: EdgeInsets.zero,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: filteredSites.length,
               itemBuilder: (context, index) {
