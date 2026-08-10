@@ -352,39 +352,6 @@ class _ReportPageState extends State<ReportPage> {
                             }),
                             const SizedBox(height: 12),
 
-                            // DropdownButtonFormField<String>(
-                            //   value: selectedWeather,
-                            //   dropdownColor: const Color(0xFF1A2232),
-                            //   onChanged: (val) => setModalState(() => selectedWeather = val),
-                            //   style: const TextStyle(color: Colors.white),
-                            //   decoration: InputDecoration(
-                            //     labelText: '天氣',
-                            //     labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-                            //     prefixIcon: const Icon(Icons.cloud_outlined, color: Color(0xFF8A94A6)),
-                            //     filled: true,
-                            //     fillColor: const Color(0xFF121824),
-                            //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            //     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-                            //   ),
-                            //   items: [
-                            //     {'label': '晴天', 'icon': Icons.wb_sunny},
-                            //     {'label': '雨天', 'icon': Icons.water_drop},
-                            //     {'label': '雷雨交加', 'icon': Icons.thunderstorm},
-                            //     {'label': '龍捲風', 'icon': Icons.cyclone},
-                            //   ].map((opt) {
-                            //     return DropdownMenuItem<String>(
-                            //       value: opt['label'] as String,
-                            //       child: Row(
-                            //         children: [
-                            //           Icon(opt['icon'] as IconData, color: const Color(0xFFE5BA73), size: 20),
-                            //           const SizedBox(width: 12),
-                            //           Text(opt['label'] as String),
-                            //         ],
-                            //       ),
-                            //     );
-                            //   }).toList(),
-                            // ),
-
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

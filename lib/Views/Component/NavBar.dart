@@ -1,8 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../Domain/Home/home_page.dart';
-import '../Domain/petty_cash_page.dart';
-import '../Domain/report_page.dart';
+import '../Domain/Patty/petty_cash_page.dart';
+import '../Domain/Report/report_page.dart';
 import '../Domain/Toolbox/toolbox_page.dart';
 
 class MainScreen extends StatefulWidget {
