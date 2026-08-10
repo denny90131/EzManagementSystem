@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../Domain/Home/home_page.dart';
-import '../Domain/Patty/petty_cash_page.dart';
-import '../Domain/Report/report_page.dart';
-import '../Domain/Toolbox/toolbox_page.dart';
+import '../Domain/Home/Home_Page.dart';
+import '../Domain/Patty/Petty_Cash_Page.dart';
+import '../Domain/Report/Report_Page.dart';
+import '../Domain/Toolbox/Toolbox_Page.dart';
 
 class MainScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;

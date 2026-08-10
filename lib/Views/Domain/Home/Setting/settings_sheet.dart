@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../Authenticator/Login.dart';
-import '../Setting/EditRegisterInfo.dart';
+import 'Edit_Register_Info.dart';
 import '../../../../API/Subscribe_api.dart';
 import '../../../../API/Invite_api.dart'; // 引入 Invite 團隊服務
 import '../../../../API/Team_api.dart'; // 引入 Team 相關服務
-import '../Setting/ManageSubscription.dart'; // 引入新分離的檔案
-import '../Setting/InviteMember.dart'; // 引入邀請成員介面
-import '../Setting/ManageMyTeam.dart'; // 引入管理我的團隊介面
+import 'Establish_Team.dart'; // 引入新分離的創建團隊服務
+import 'Manage_Subscription.dart'; // 引入新分離的檔案
+import 'Invite_Member.dart'; // 引入邀請成員介面
+import 'Manage_My_Team.dart'; // 引入管理我的團隊介面
 
 class SettingsBottomSheet extends StatefulWidget {
   final String userName;
@@ -124,43 +125,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   void _showError(String msg) {
     ScaffoldMessenger.of(widget.parentContext).showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
-  }
-
-  void _showCreateTeamDialog() {
-    final TextEditingController controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2532),
-        title: const Text('建立新團隊', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: '輸入團隊名稱',
-            hintStyle: const TextStyle(color: Colors.white54),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white.withOpacity(0.5))),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE5BA73))),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                Navigator.pop(ctx);
-                await _createNewTeam(name);
-              }
-            },
-            child: const Text('建立', style: TextStyle(color: Color(0xFFE5BA73))),
-          ),
-        ],
-      ),
     );
   }
 
@@ -499,7 +463,15 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             backgroundColor: const Color(0xFFE5BA73),
                             foregroundColor: Colors.black,
                           ),
-                          onPressed: _showCreateTeamDialog,
+                          onPressed: () {
+                            CreateTeamAction(
+                              userId: _userId,
+                              onSaveSelectedTeam: _saveSelectedTeam,
+                              onTeamsUpdated: _fetchTeams,
+                              onError: _showError,
+                              onSetLoadingTeams: (isLoading) => setState(() => _isLoadingTeams = isLoading),
+                            ).showCreateTeamDialog(context);
+                          },
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('建立團隊', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
@@ -549,14 +521,16 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.05),
-                          shape: BoxShape.circle,
+                          shape: BoxShape.circle, // 修正：shape 屬性應在 BoxDecoration 內部
                         ),
                         child: IconButton(
                           icon: const Icon(Icons.add, color: Color(0xFFE5BA73)),
                           tooltip: '建立新團隊',
-                          onPressed: _showCreateTeamDialog,
+                          onPressed: () {
+                            CreateTeamAction(userId: _userId, onSaveSelectedTeam: _saveSelectedTeam, onTeamsUpdated: _fetchTeams, onError: _showError, onSetLoadingTeams: (isLoading) => setState(() => _isLoadingTeams = isLoading)).showCreateTeamDialog(context);
+                          },
                         ),
-                      ),
+                      ), // 修正：移除重複的 IconButton
                     ],
                   ),
               ],
