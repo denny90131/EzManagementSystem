@@ -251,6 +251,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         keyboardType: keyboardType,
         readOnly: readOnly,
         onTap: onTap,
+        contextMenuBuilder: readOnly ? (context, editableTextState) => const SizedBox.shrink() : null,
         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
         validator: (value) {
           if (isRequired && (value == null || value.trim().isEmpty)) return '請輸入$label';

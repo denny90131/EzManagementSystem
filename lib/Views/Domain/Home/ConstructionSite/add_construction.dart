@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'custom_widgets.dart'; // 🚀 引入共用元件
 import '../../../../API/construction_api.dart';
 
 class AddConstructionDialog extends StatefulWidget {
@@ -65,111 +66,19 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
   }
 
   Widget _buildDialogTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false, VoidCallback? onTap, bool isRequired = false, List<TextInputFormatter>? inputFormatters}) {
-    return _buildCustomTextField(controller: controller, label: label, icon: icon, maxLines: maxLines, keyboardType: keyboardType, readOnly: readOnly, onTap: onTap, isRequired: isRequired, inputFormatters: inputFormatters);
-  }
-
-  // 建立一個更通用的 TextField Builder，方便加入 suffixIcon
-  Widget _buildCustomTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    int maxLines = 1,
-    TextInputType? keyboardType,
-    bool readOnly = false,
-    VoidCallback? onTap,
-    bool isRequired = false, // 新增 isRequired 參數
-    Widget? suffixIcon,
-    List<TextInputFormatter>? inputFormatters, // 新增：輸入格式化工具
-  }) {
-    return TextFormField( // Changed from TextField to TextFormField
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      readOnly: readOnly,
-      inputFormatters: inputFormatters, // 新增：套用輸入格式
-      onTap: onTap,
-      validator: (value) {
-        if (isRequired && (value == null || value.trim().isEmpty)) {
-          return '請輸入$label';
-        }
-        // 手機號碼格式驗證 (09開頭，共10碼)
-        if (keyboardType == TextInputType.phone && value != null && value.trim().isNotEmpty) {
-          final phoneRegExp = RegExp(r'^09\d{8}$');
-          if (!phoneRegExp.hasMatch(value.trim())) {
-            return '請輸入有效的10碼手機號碼';
-          }
-        }
-        // 數字驗證
-        if (keyboardType == TextInputType.number && value != null && value.trim().isNotEmpty) {
-          if (num.tryParse(value.trim()) == null) {
-            return '請輸入有效的數字';
-          }
-        }
-        return null;
-      },
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
-        suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: const Color(0xFF121824),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-      ),
-    );
+    return buildCustomTextField(controller: controller, label: label, icon: icon, maxLines: maxLines, keyboardType: keyboardType, readOnly: readOnly, onTap: onTap, isRequired: isRequired, inputFormatters: inputFormatters);
   }
 
   // 新增：下拉式選單輔助元件
   Widget _buildDialogDropdownField(String label, IconData icon, List<String> items, String? value, ValueChanged<String?> onChanged, {bool isRequired = false}) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      dropdownColor: const Color(0xFF1A2232),
-      onChanged: onChanged,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
-        filled: true,
-        fillColor: const Color(0xFF121824),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-      ),
-      validator: isRequired
-          ? (val) => (val == null || val.isEmpty) ? '請選擇$label' : null
-          : null,
-      items: items.map((String item) {
-        return DropdownMenuItem<String>(value: item, child: Text(item));
-      }).toList(),
-    );
+    // 🚀 改為呼叫共用元件
+    return buildCustomDropdownField(label: label, icon: icon, items: items, value: value, onChanged: onChanged, isRequired: isRequired);
   }
 
   // 顯示圖片來源選擇的 ActionSheet (單張圖片)
   void _showImageSourceActionSheet(BuildContext context, Function(ImageSource) onPickImage) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A2232),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
-                title: const Text('拍照', style: TextStyle(color: Colors.white)),
-                onTap: () { Navigator.of(context).pop(); onPickImage(ImageSource.camera); },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
-                title: const Text('從相簿選擇', style: TextStyle(color: Colors.white)),
-                onTap: () { Navigator.of(context).pop(); onPickImage(ImageSource.gallery); },
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    // 🚀 改為呼叫共用方法
+    showImageSourceActionSheet(context, onPickImage);
   }
   
   // 處理選擇單張圖片
@@ -372,7 +281,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                       const Divider(color: Colors.white24),
                       const SizedBox(height: 12),
                       // 門禁/鑰匙
-                      _buildCustomTextField(
+                      buildCustomTextField(
                         controller: _accessControlNoteController,
                         label: '門禁/鑰匙',
                         icon: Icons.vpn_key_outlined,
@@ -385,7 +294,7 @@ class _AddConstructionDialogState extends State<AddConstructionDialog> {
                       ),
                       const SizedBox(height: 12),
                       // 停車位
-                      _buildCustomTextField(
+                      buildCustomTextField(
                         controller: _parkingSpotNoteController,
                         label: '停車位',
                         icon: Icons.local_parking_outlined,

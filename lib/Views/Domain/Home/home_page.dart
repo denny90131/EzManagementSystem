@@ -544,9 +544,11 @@ class _HomePageState extends State<HomePage> {
                             'name': m['name']?.toString() ?? '', 
                           };
                         }).toList(),
-                          sites: _sites.map((s) => {
-                            'id': s['siteUUID']?.toString() ?? '', // 安全地轉換為 String，避免 null
-                            'name': s['siteName']?.toString() ?? '', // 安全地轉換為 String，避免 null
+                          sites: _sites.map((s) {
+                            return {
+                              'id': s['siteUUID']?.toString() ?? '', // 安全地轉換為 String，避免 null
+                              'name': s['siteName']?.toString() ?? '', // 安全地轉換為 String，避免 null
+                            };
                           }).toList(),
                         ),
                         icon: const Icon(Icons.assignment_ind_outlined, size: 16, color: Colors.black),

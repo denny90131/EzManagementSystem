@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:convert'; // 🚀 新增：用於 Base64 解碼
 import 'dart:ui';
+import 'dart:typed_data'; // 🚀 新增：用於 Uint8List
 import 'package:image_picker/image_picker.dart';
+import 'package:ez_manager/API/construction_api.dart'; // 引入工地 API 服務
+import 'custom_widgets.dart'; // 🚀 引入共用元件
+import 'site_details_model.dart'; // 🚀 引入新的資料模型
+import 'site_edit_sheet.dart'; // 🚀 引入新的編輯頁面
 import 'package:file_picker/file_picker.dart';
 
 // --- 案件詳細頁面 (點擊案件卡片時導覽) ---
@@ -19,33 +25,15 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   int _currentTab = 0; // 0: 會議紀錄, 1: 現況照, 2: 3D模擬圖, 3: 施工圖, 4: 材質表, 5: 設備表
   final ImagePicker _picker = ImagePicker(); // 圖片選擇器器實例
 
-  // 工地詳細資料，將由 initState 初始化
-  late Map<String, dynamic> _siteDetails;
+  // 🚀 使用強型別的 Model 取代 Map
+  late SiteDetails _siteDetails;
+  bool _isLoadingDetails = true; // 新增：追蹤詳細資料是否載入中
 
-  @override
-  void initState() {
-    super.initState();
-    // 2. 使用從前一頁傳來的 widget.site 資料來初始化 _siteDetails
-    //    對於 widget.site 中沒有的欄位，會使用預設值或空字串
-    _siteDetails = {
-      // 從 widget.site 對應過來的資料
-      'siteName': widget.site['siteName'] ?? '未命名工地', // 正確
-      'siteAddress': widget.site['siteAddress'] ?? '無地址資訊', // 正確 (注意：編輯視窗使用的是 'notes' 而非 'note')
-      'notes': widget.site['note'] ?? '', // 正確
+  // 🚀 使用強型別的 Model 儲存附件資訊
+  SiteAttachment _accessControl = const SiteAttachment.empty();
+  SiteAttachment _parkingSpot = const SiteAttachment.empty();
 
-      // --- 以下是修正過的欄位 ---
-      'ownerName': widget.site['siteClient'] ?? '未提供', // [修正] 業主名稱，API key 應為 siteClient
-      'ownerPhone': widget.site['siteClientPhoneNumber'] ?? '未提供', // [修正] 業主電話，API key 應為 siteClientPhoneNumber
-      'project': widget.site['siteProperty'] ?? '未提供', // [修正] 建案，API key 應為 siteProperty
-      'contractorName': widget.site['siteOwner'] ?? '未提供', // [修正] 發包人名稱，API key 應為 siteOwner
-      'contractorPhone': widget.site['siteOwnerPhoneNumber'] ?? '未提供', // [修正] 發包人電話，API key 應為 siteOwnerPhoneNumber
-      'orderDate': widget.site['siteOrderBegeingDate']?.toString() ?? '未提供', // [修正] 日期，並轉為字串
-      'duration': widget.site['siteOrderExecuteTime']?.toString() ?? '未提供', // [修正] 工期，並轉為字串
-      'sellingPrice': widget.site['price']?.toString() ?? '未提供', // [修正] 售價，並轉為字串
-    };
-  }
-
-  // 儲存各標籤的圖片清單 (1~5)
+  // 儲存各標籤的圖片清單 (1~5)，現在可以從 API 的 sources 中初始化
   final Map<int, List<dynamic>> _tabImages = {
     1: [], // 現況照
     2: [], // 3D模擬圖
@@ -53,6 +41,93 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
     4: [], // 材質表
     5: [], // 設備表
   };
+
+  @override
+  void initState() {
+    super.initState();
+    // 🚀 使用工廠建構子初始化資料模型
+    _siteDetails = SiteDetails.fromInitial(widget.site);
+
+    _fetchSiteDetails(); // 🚀 新增：呼叫新的方法來載入完整的工地詳細資料
+  }
+
+// 🚀 新增：從 API 載入完整的工地詳細資料
+  Future<void> _fetchSiteDetails() async {
+    final siteUUID = widget.site['siteUUID']?.toString();
+    if (siteUUID == null) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDetails = false;
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('無法取得工地 UUID，請檢查資料來源。')),
+      );
+      return;
+    }
+
+    try {
+      final fullSiteData = await ConstructionApiService.getSiteDetail(siteUUID);
+      if (!mounted) return;
+
+      if (fullSiteData != null) {
+        setState(() {
+          // 🚀 使用 fromApi 工廠建構子更新資料，更安全簡潔
+          _siteDetails = SiteDetails.fromApi(fullSiteData, fallback: _siteDetails);
+
+          // 處理 sources 資料，將其分配到 _tabImages
+          final List<dynamic> sources = fullSiteData['sources'] ?? [];
+          for (var source in sources) {
+            final String? sourceType = source['sourceType']?.toString();
+            final String? sourceData = source['source']?.toString();
+
+            if (sourceType != null && sourceData != null && sourceData.isNotEmpty) {
+              try {
+                // 🚀 新增：將 Base64 字串解碼為 Uint8List
+                final imageBytes = base64Decode(sourceData.split(',').last.replaceAll(RegExp(r'\s+'), ''));
+                
+                // 🚀 新增：根據 sourceType 分配到對應的 Tab
+                switch (sourceType) {
+                  case '現況照': _tabImages[1]?.add(imageBytes); break;
+                  case '3D模擬圖': _tabImages[2]?.add(imageBytes); break; // 修正：3D模擬圖
+                  case '施工圖': _tabImages[3]?.add(imageBytes); break;
+                  case '材質表': _tabImages[4]?.add(imageBytes); break;
+                  case '設備表': _tabImages[5]?.add(imageBytes); break;
+                  case '門禁':
+                    _accessControl = SiteAttachment(
+                      note: source['note']?.toString(),
+                      imageBytes: imageBytes,
+                    );
+                    break;
+                  case '停車位':
+                    _parkingSpot = SiteAttachment(
+                      note: source['note']?.toString(),
+                      imageBytes: imageBytes,
+                    );
+                    break;
+                  default:
+                    // 如果有未知的類型，可以選擇性地印出 log 或忽略
+                    debugPrint('Unknown source type: $sourceType');
+                }
+              } catch (e) {
+                debugPrint('Failed to decode Base64 image for sourceType "$sourceType": $e');
+              }
+            }
+          }
+        }); // setState 結束
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('載入工地詳細資料失敗: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDetails = false);
+      }
+    }
+  }
 
   // 模擬會議紀錄資料
   final List<Map<String, dynamic>> _mockRecords = [
@@ -177,12 +252,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                       runSpacing: 8,
                       children: List.generate((record['images'] as List).length, (imgIndex) {
                         final img = record['images'][imgIndex];
-                        ImageProvider imgProvider;
-                        if (img is XFile) {
-                          imgProvider = FileImage(File(img.path));
-                        } else {
-                          imgProvider = const AssetImage('assets/images/placeholder.png'); // 備用示意圖
-                        }
+                        final imgProvider = resolveImageProvider(img); // 🚀 使用共用函式
                         return GestureDetector(
                           onTap: () => _openFullScreenGallery(originalIndex, imgIndex), // 點擊開啟全螢幕
                           child: Container(
@@ -490,13 +560,11 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             spacing: 8,
                             runSpacing: 8,
                             children: List.generate(publicAttachedImages.length, (i) {
-                              final img = publicAttachedImages[i];
-                              ImageProvider provider = img is XFile ? FileImage(File(img.path)) : const AssetImage('assets/images/placeholder.png');
                               return Stack(
                                 children: [
                                   Container(
                                     width: 72, height: 72,
-                                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: provider, fit: BoxFit.cover)),
+                                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: resolveImageProvider(publicAttachedImages[i]), fit: BoxFit.cover)),
                                   ),
                                   Positioned(
                                     top: 0, right: 0,
@@ -556,13 +624,11 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             spacing: 8,
                             runSpacing: 8,
                             children: List.generate(privateAttachedImages.length, (i) {
-                              final img = privateAttachedImages[i];
-                              ImageProvider provider = img is XFile ? FileImage(File(img.path)) : const AssetImage('assets/images/placeholder.png');
                               return Stack(
                                 children: [
                                   Container(
                                     width: 72, height: 72,
-                                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: provider, fit: BoxFit.cover)),
+                                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: resolveImageProvider(privateAttachedImages[i]), fit: BoxFit.cover)),
                                   ),
                                   Positioned(
                                     top: 0, right: 0,
@@ -623,223 +689,32 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
 
   // 顯示圖片來源選擇的底部彈出選單
   void _showImageSourceActionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A2232),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (BuildContext ctx) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
-                title: const Text('從相簿選擇 (可多選)', style: TextStyle(color: Colors.white)),
-                onTap: () { Navigator.pop(ctx); _pickImage(ImageSource.gallery); },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
-                title: const Text('拍照', style: TextStyle(color: Colors.white)),
-                onTap: () { Navigator.pop(ctx); _pickImage(ImageSource.camera); },
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    // 🚀 改為呼叫共用方法
+    showImageSourceActionSheet(context, _pickImage, allowMultiPick: true);
   }
 
-  // 建立表單輸入框的輔助元件
-  Widget _buildEditTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false, VoidCallback? onTap}) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      readOnly: readOnly,
-      onTap: onTap,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
-        filled: true,
-        fillColor: const Color(0xFF121824),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-      ),
-    );
-  }
-
-  // 建立表單下拉選單的輔助元件
-  Widget _buildEditDropdownField(String label, IconData icon, List<String> items, String? value, ValueChanged<String?>? onChanged) {
-    return DropdownButtonFormField<String>(
-      value: items.contains(value) ? value : null,
-      dropdownColor: const Color(0xFF1A2232),
-      onChanged: onChanged,
-      icon: onChanged == null ? const SizedBox.shrink() : null,
-      style: TextStyle(color: onChanged == null ? Colors.white70 : Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
-        filled: true,
-        fillColor: const Color(0xFF121824),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-      ),
-      items: items.map((String item) => DropdownMenuItem<String>(value: item, child: Text(item))).toList(),
-    );
-  }
-
-  // 顯示編輯工地資料的底部彈出視窗
-  void _showEditSiteDetailsBottomSheet() {
-    bool isEditing = false;
-    final ownerNameCtrl = TextEditingController(text: _siteDetails['ownerName']);
-    final ownerPhoneCtrl = TextEditingController(text: _siteDetails['ownerPhone']);
-    final siteNameCtrl = TextEditingController(text: _siteDetails['siteName']);
-    final siteAddressCtrl = TextEditingController(text: _siteDetails['siteAddress']);
-    final projectCtrl = TextEditingController(text: _siteDetails['project']);
-    final contractorNameCtrl = TextEditingController(text: _siteDetails['contractorName']);
-    final contractorPhoneCtrl = TextEditingController(text: _siteDetails['contractorPhone']);
-    final orderDateCtrl = TextEditingController(text: _siteDetails['orderDate']);
-    final durationCtrl = TextEditingController(text: _siteDetails['duration']);
-    final sellingPriceCtrl = TextEditingController(text: _siteDetails['sellingPrice']);
-    final notesCtrl = TextEditingController(text: _siteDetails['notes']);
-
-    showModalBottomSheet(
+  // 🚀 顯示編輯工地資料的底部彈出視窗 (已重構)
+  Future<void> _showEditSiteDetailsBottomSheet() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent, // 改為透明以自訂頂部間距
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Padding(
-              // 增加 top: 60 避免畫面太貼齊上方
-              padding: EdgeInsets.only(top: 60.0, bottom: MediaQuery.of(ctx).viewInsets.bottom),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1A2232),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 固定在頂部的標題列與關閉按鈕
-                    Padding(
-                      padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 16.0, bottom: 8.0),
-                      child: Column(
-                        children: [
-                          // 頂部拖曳指示條
-                          Center(
-                            child: Container(
-                              width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
-                              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-                            ),
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(isEditing ? '編輯工地資料' : '工地詳細資料', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                              IconButton(icon: const Icon(Icons.close, color: Colors.white54), onPressed: () => Navigator.pop(ctx)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 讓內部表單可滾動
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0),
-                        child: Column(
-                          children: [
-                            _buildEditTextField(ownerNameCtrl, '業主名稱', Icons.person_outline, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(ownerPhoneCtrl, '業主手機號碼', Icons.phone_outlined, keyboardType: TextInputType.phone, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(siteNameCtrl, '工地名稱', Icons.work_outline, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(siteAddressCtrl, '工地地址', Icons.location_on_outlined, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(projectCtrl, '建案', Icons.domain_outlined, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(contractorNameCtrl, '發包人名稱', Icons.handshake_outlined, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(contractorPhoneCtrl, '發包人手機', Icons.phone_android_outlined, keyboardType: TextInputType.phone, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(orderDateCtrl, '訂單日期', Icons.calendar_today_outlined, readOnly: true, onTap: isEditing ? () async {
-                              final picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
-                              if (picked != null) setModalState(() => orderDateCtrl.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}");
-                            } : null),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(durationCtrl, '預計工期 (天)', Icons.timer_outlined, keyboardType: TextInputType.number, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(sellingPriceCtrl, '售價', Icons.sell_outlined, keyboardType: TextInputType.number, readOnly: !isEditing),
-                            const SizedBox(height: 12),
-                            _buildEditTextField(notesCtrl, '備註', Icons.note_alt_outlined, maxLines: 3, readOnly: !isEditing),
-                            const SizedBox(height: 24),
-                            if (isEditing)
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        // 返回檢視模式並還原資料
-                                        ownerNameCtrl.text = _siteDetails['ownerName'];
-                                        ownerPhoneCtrl.text = _siteDetails['ownerPhone'];
-                                        siteNameCtrl.text = _siteDetails['siteName'];
-                                        siteAddressCtrl.text = _siteDetails['siteAddress'];
-                                        projectCtrl.text = _siteDetails['project'];
-                                        contractorNameCtrl.text = _siteDetails['contractorName'];
-                                        contractorPhoneCtrl.text = _siteDetails['contractorPhone'];
-                                        orderDateCtrl.text = _siteDetails['orderDate'];
-                                        durationCtrl.text = _siteDetails['duration'];
-                                        sellingPriceCtrl.text = _siteDetails['sellingPrice'];
-                                        notesCtrl.text = _siteDetails['note'];
-                                        setModalState(() => isEditing = false);
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: const Color(0xFF8A94A6),
-                                        side: const BorderSide(color: Color(0xFF8A94A6)),
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      child: const Text('返回', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: () { // 移除 accessControl, constructionItem, budget
-                                        setState(() => _siteDetails = { 'ownerName': ownerNameCtrl.text, 'ownerPhone': ownerPhoneCtrl.text, 'siteName': siteNameCtrl.text, 'siteAddress': siteAddressCtrl.text, 'project': projectCtrl.text, 'contractorName': contractorNameCtrl.text, 'contractorPhone': contractorPhoneCtrl.text, 'orderDate': orderDateCtrl.text, 'duration': durationCtrl.text, 'sellingPrice': sellingPriceCtrl.text, 'notes': notesCtrl.text });
-                                        setModalState(() => isEditing = false);
-                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('工地資料已更新')));
-                                      },
-                                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                                      child: const Text('儲存變更', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              ElevatedButton(
-                                onPressed: () {
-                                  setModalState(() => isEditing = true);
-                                },
-                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BA73), foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                                child: const Text('編輯資料', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-        );
-      }
+      builder: (ctx) => SiteEditSheet(
+        initialDetails: _siteDetails,
+        initialAccessControl: _accessControl,
+        initialParkingSpot: _parkingSpot,
+      ),
     );
+
+    if (result != null && mounted) {
+      setState(() {
+        _siteDetails = result['details'] as SiteDetails;
+        _accessControl = result['accessControl'] as SiteAttachment;
+        _parkingSpot = result['parkingSpot'] as SiteAttachment;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('工地資料已更新')));
+    }
   }
 
   // 處理選擇文件 (使用 file_picker 套件)
@@ -864,7 +739,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
         backgroundColor: const Color(0xFF121824), // 深色背景
         foregroundColor: Colors.white,
         elevation: 0,
-        title: Text(_siteDetails['siteName'] ?? '工地資料', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(_siteDetails.siteName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
@@ -880,7 +755,16 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
         ],
       ),
       body: Column(
-        children: [
+        // If details are loading, show the progress indicator. Otherwise, show the content.
+        children: _isLoadingDetails
+            ? [
+                const Expanded(
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFFE5BA73)),
+                  ),
+                ),
+              ]
+            : [ // The content to show when loading is complete.
           // 2. 專案資料分類標籤
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -898,8 +782,8 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                   _buildTab(3, '施工圖'),
                   const SizedBox(width: 24),
                   _buildTab(4, '材質表'),
-                  const SizedBox(width: 24),
-                  _buildTab(5, '設備表'),
+                  const SizedBox(width: 24), // 修正
+                  _buildTab(5, '設備表'), // 修正
                 ],
               ),
             ),
@@ -944,13 +828,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                               ),
                               itemCount: _tabImages[_currentTab]!.length,
                               itemBuilder: (context, index) {
-                                final img = _tabImages[_currentTab]![index];
-                                ImageProvider imgProvider;
-                                if (img is XFile) {
-                                  imgProvider = FileImage(File(img.path));
-                                } else {
-                                  imgProvider = const AssetImage('assets/images/placeholder.png');
-                                }
+                                final imgProvider = resolveImageProvider(_tabImages[_currentTab]![index]);
                                 return GestureDetector(
                                   onTap: () => _openTabFullScreenGallery(index),
                                   child: Container(
@@ -1132,6 +1010,82 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
       ),
     );
   }
+
+  // 🚀 新增：顯示全螢幕圖片 (用於 Uint8List)
+  void _showFullScreenImage(BuildContext context, Uint8List imageBytes) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.black.withOpacity(0.8),
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            children: [
+              Center(child: InteractiveViewer(child: Image.memory(imageBytes, fit: BoxFit.contain))),
+              Positioned(top: 16, right: 16, child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 30), onPressed: () => Navigator.of(dialogContext).pop())),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 🚀 新增：建立圖片縮圖作為 TextField 的 suffixIcon
+  Widget? _buildImageSuffixIcon(Uint8List? imageBytes, {String? note}) {
+    if (imageBytes != null) {
+      return Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: GestureDetector(
+          onTap: () => _showFullScreenImage(context, imageBytes),
+          child: ClipRRect(borderRadius: BorderRadius.circular(4), child: Image.memory(imageBytes, width: 40, height: 40, fit: BoxFit.cover)),
+        ),
+      );
+    }
+    return null; // 如果沒有圖片，則不顯示任何東西
+  }
+
+  // 🚀 新增：建立可編輯狀態下的圖片 suffixIcon
+  Widget _buildEditableImageSuffixIcon({
+    XFile? newImage,
+    Uint8List? existingImageBytes,
+    required VoidCallback onPickImage,
+    required VoidCallback onRemoveImage,
+  }) {
+    ImageProvider? imageProvider;
+    if (newImage != null) {
+      imageProvider = FileImage(File(newImage.path));
+    } else if (existingImageBytes != null) {
+      imageProvider = MemoryImage(existingImageBytes);
+    }
+
+    if (imageProvider != null) {
+      return Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            GestureDetector(
+              onTap: onPickImage, // 點擊縮圖也可以更換圖片
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image(image: imageProvider, width: 40, height: 40, fit: BoxFit.cover),
+              ),
+            ),
+            GestureDetector(
+              onTap: onRemoveImage,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 0.5)),
+                child: const Icon(Icons.close, color: Colors.white, size: 12),
+              ),
+            )
+          ],
+        ),
+      );
+    } else {
+      return IconButton(icon: const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE5BA73)), onPressed: onPickImage);
+    }
+  }
 }
 
 // --- 全螢幕圖片預覽元件 ---
@@ -1197,8 +1151,7 @@ class _FullScreenGalleryState extends State<FullScreenGallery> {
         onPageChanged: (idx) => setState(() => _currentIndex = idx),
         itemBuilder: (context, index) {
           final img = _currentImages[index];
-          ImageProvider provider = img is XFile ? FileImage(File(img.path)) : const AssetImage('assets/images/placeholder.png') as ImageProvider;
-          return InteractiveViewer(child: Image(image: provider, fit: BoxFit.contain));
+          return InteractiveViewer(child: Image(image: resolveImageProvider(img), fit: BoxFit.contain));
         },
       ),
     );

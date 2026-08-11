@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:ez_manager/Views/Domain/Home/ConstructionSite/custom_widgets.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ReportPage extends StatefulWidget {
@@ -186,22 +187,7 @@ class _ReportPageState extends State<ReportPage> {
 
   // 建立表單下拉選單的輔助元件
   Widget _buildDialogDropdownField(String label, IconData icon, List<String> items, String? value, ValueChanged<String?> onChanged) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      dropdownColor: const Color(0xFF1A2232),
-      onChanged: onChanged,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8A94A6)),
-        prefixIcon: Icon(icon, color: const Color(0xFF8A94A6)),
-        filled: true,
-        fillColor: const Color(0xFF121824),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5BA73))),
-      ),
-      items: items.map((String item) => DropdownMenuItem<String>(value: item, child: Text(item))).toList(),
-    );
+    return buildCustomDropdownField(label: label, icon: icon, items: items, value: value, onChanged: onChanged);
   }
 
   // 顯示「新增回報」的底部彈出視窗
@@ -271,27 +257,8 @@ class _ReportPageState extends State<ReportPage> {
             }
 
             void showImageSource(bool isPublic) {
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: const Color(0xFF1A2232),
-                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-                builder: (BuildContext ctx2) => SafeArea(
-                  child: Wrap(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE5BA73)),
-                        title: const Text('從相簿選擇 (可多選)', style: TextStyle(color: Colors.white)),
-                        onTap: () { Navigator.pop(ctx2); pickRecordImages(ImageSource.gallery, isPublic); },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.photo_camera_outlined, color: Color(0xFFE5BA73)),
-                        title: const Text('拍照', style: TextStyle(color: Colors.white)),
-                        onTap: () { Navigator.pop(ctx2); pickRecordImages(ImageSource.camera, isPublic); },
-                      ),
-                    ],
-                  ),
-                ),
-              );
+              // 🚀 改為呼叫共用方法
+              showImageSourceActionSheet(context, (source) => pickRecordImages(source, isPublic), allowMultiPick: true);
             }
 
             return Padding(
