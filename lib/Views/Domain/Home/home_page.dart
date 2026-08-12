@@ -1,16 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart'; // 🚀 引入 compute 所需套件
-import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:ez_manager/Views/Domain/Home/Management_Module/Dashboard.dart'; // 引入新的儀表板模組
-import 'package:ez_manager/Views/Domain/Home/Management_Module/Employee_Status_Section.dart'; // 引入新的員工狀態模組
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../API/Authenticator_api.dart';
-import '../../../API/construction_api.dart'; // 引入工地 API
-import '../../../API/Subscribe_api.dart'; // 引入訂閱 API
-import '../../../API/Team_api.dart'; // 引入團隊 API
+import 'package:ez_manager/Views/Domain/Home/Management_Module/Employee_Status_Section.dart'; // 引入新的員工狀態模組'
+import 'package:ez_manager/Views/Domain/Home/home_page_data_service.dart'; // 🚀 引入新的資料服務
 import 'Setting/Settings_Sheet.dart'; // 引入獨立的底部選單元件
 import 'ConstructionSite/Add_Construction.dart'; // 引入新增工地的獨立對話框
 import 'Dispatch/Dispatch_Work.dart'; // 引入派工的獨立對話框
@@ -107,140 +101,50 @@ class _HomePageState extends State<HomePage> {
 
   // 新增參數 fetchUser，用來控制是否需要呼叫 User 相關的 API
   Future<void> _fetchData({bool fetchUser = true}) async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
-      final activeTeamId = prefs.getString('active_team_uuid');
-      debugPrint('[_fetchData] Active Team ID from SharedPreferences: $activeTeamId');
+      final data = await HomePageDataService.fetchHomePageData(
+        fetchUser: fetchUser,
+        initialUserData: _fullUserData,
+      );
       
-      // 1. 準備所有 API 請求 (此時不使用 await，讓它們不阻塞)
-      final hasTeam = activeTeamId != null && activeTeamId.isNotEmpty;
-      final membersFuture = hasTeam ? TeamApiService.getMemberTeam(activeTeamId) : Future.value(null);
-      final sitesFuture = hasTeam ? ConstructionApiService.getSitesByTeam(activeTeamId) : Future.value(null); // 獲取工地列表
-      final planFuture = hasTeam ? SubscriptionApiService.getActivePlan(activeTeamId) : Future.value(null);
-      
-      final shouldFetchUser = userId != null && fetchUser; // 根據參數決定是否發送使用者 API
-      final userFuture = shouldFetchUser ? ApiService.getUserById(userId) : Future.value(null);
-      final statusFuture = shouldFetchUser ? ApiService.getCompletionStatus(userId) : Future.value(null);
-      
-      final teamsFuture = userId != null ? SubscriptionApiService.getTeams(userId) : Future.value(null);
-
-      // 2. 使用 Future.wait 平行發起所有請求 (大幅減少首頁轉圈圈的時間)
-      final results = await Future.wait([
-        membersFuture,
-        sitesFuture,
-        planFuture,
-        userFuture,
-        statusFuture,
-        teamsFuture, // 🚀 將團隊列表請求加入併發陣列
-      ]);
-
       if (!mounted) return;
 
-      final members = results[0];
-      final sites = results[1];
-      final activePlan = results[2];
-      final userData = results[3];
-      debugPrint('[_fetchData] Raw sites data from API: $sites');
-      final status = results[4];
-      final teamsData = results[5]; // 取出團隊清單資料
-
-      // 🚀 將非同步的 await 移出 setState 之外
-      // 等待 compute 在背景把成員名單與 Base64 圖片都解析完畢
-      List<Map<String, dynamic>> parsedMembers = [];
-      if (hasTeam && members is List) { // 確保 members 是 List 且有團隊時才執行
-        parsedMembers = await compute(_parseTeamMembersInBackground, members);
-      }
-      if (!mounted) return;
-
-      setState(() {
-        // 🚀 處理剛抓回來的團隊列表資料
-        if (teamsData != null) {
-          try {
-            final teamModels = teamsData as List<TeamModel>;
-            _userTeams = teamModels.map<Map<String, String>>((t) => {
-              'id': t.teamUUID,
-              'name': t.teamName.isNotEmpty ? t.teamName : '未命名團隊',
-            }).where((t) => t['id']!.isNotEmpty).toList();
-          } catch (e) {
-            debugPrint('解析團隊列表發生錯誤: $e');
-          }
-        }
-
-        // 防呆機制移到這裡：等真正的團隊資料解析完後，如果 activeTeamId 還是不在裡面才補上預設值
-        if (activeTeamId != null && activeTeamId.isNotEmpty && !_userTeams.any((t) => t['id'] == activeTeamId)) {
-          _userTeams.add({'id': activeTeamId, 'name': '目前團隊'});
-        }
-
-        _selectedTeamId = activeTeamId?.isEmpty == true ? null : activeTeamId;
-        
-        // 如果一開始未選擇過團隊但清單有資料，自動選中第一筆並抓取團隊資料
-        if (_selectedTeamId == null && _userTeams.isNotEmpty) {
-          _selectedTeamId = _userTeams.first['id'];
-          // 這裡不能直接 setState，因為接下來的 await 會導致錯誤。
-          // 我們在 setState 外處理異步操作，然後重新觸發資料抓取。
-        }
-
-      });
-
-      if (activeTeamId == null && _userTeams.isNotEmpty) {
-        debugPrint('[_fetchData] No active team selected, setting to first team: ${_userTeams.first['id']}');
-        await prefs.setString('active_team_uuid', _userTeams.first['id']!);
-        _fetchData(fetchUser: false);
-        return; // 終止當次執行，等待下一次完整的 _fetchData
+      if (data.needsRefetch) {
+        _fetchData(fetchUser: false); // 如果服務標記需要重抓，則再次呼叫
+        return;
       }
 
       setState(() {
-        // ===== 處理團隊成員資料 =====
-        if (hasTeam) {
-          _isSubscribed = activePlan != null && (activePlan as dynamic).remainingDays > 0;
-          _teamMembers = parsedMembers; // 直接賦予已在背景運算完成的資料
-          // 檢查 sites 是否為 List 型別，避免型別轉換錯誤ß
-          debugPrint('[_fetchData] Processing sites data. Is sites a List? ${sites is List}');
-          if (sites != null && sites is List) {
-            _sites = List<Map<String, dynamic>>.from(sites);
-            _filteredSites = _sites; // 初始狀態下，過濾列表等於完整列表
-            _filterSites(); // 👈 強制重新執行過濾邏輯以同步畫面
-          } else {
-            _sites = [];
-            debugPrint('[_fetchData] Sites data is null or not a List. _sites set to empty.');
-          }
-        } else {
-          _sites = [];
-          _teamMembers = [];
-          _isSubscribed = false;
-        }
-        debugPrint('[_fetchData] Number of sites after processing: ${_sites.length}');
+        _userTeams = data.userTeams;
+        _selectedTeamId = data.selectedTeamId;
+        _isSubscribed = data.isSubscribed;
+        _teamMembers = data.teamMembers;
+        _sites = data.sites;
+        _filteredSites = List.from(_sites);
+        _isProfileComplete = data.isProfileComplete;
 
-        // ===== 處理使用者資料 =====
-        if (shouldFetchUser) {
-          if (userData != null && (userData as Map)['name'] != null) {
-            _fullUserData = userData as Map<String, dynamic>;
-            _userName = userData['name'];
-            _userPictureBase64 = userData['picture'];
-            _userCompany = userData['company'];
-            _userPosition = userData['position'];
-            _userPhone = userData['phoneNumber'];
-            
-            if (_userPictureBase64 != null && _userPictureBase64!.isNotEmpty) {
-              Future(() {
-                try {
-                  final bytes = base64Decode(_userPictureBase64!.split(',').last.replaceAll(RegExp(r'\s+'), ''));
-                  if (mounted) setState(() => _userPictureBytes = bytes);
-                } catch (_) {}
-              });
-            }
-          } else if (_userName == '載入中...') {
-            _userName = '使用者';
+        if (data.fullUserData != null) {
+          _fullUserData = data.fullUserData;
+          _userName = _fullUserData!['name'] ?? '使用者';
+          _userPictureBase64 = _fullUserData!['picture'];
+          _userCompany = _fullUserData!['company'];
+          _userPosition = _fullUserData!['position'];
+          _userPhone = _fullUserData!['phoneNumber'];
+
+          if (_userPictureBase64 != null && _userPictureBase64!.isNotEmpty) {
+            Future(() {
+              try {
+                final bytes = base64Decode(_userPictureBase64!.split(',').last.replaceAll(RegExp(r'\s+'), ''));
+                if (mounted) setState(() => _userPictureBytes = bytes);
+              } catch (_) {}
+            });
           }
-          
-          if (status != null) {
-            _isProfileComplete = (status as Map)['isComplete'];
-          }
-        } else if (userId == null && _userName == '載入中...') {
-          _userName = '訪客';
         }
       });
+      _filterSites(); // 更新完資料後執行過濾
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -248,7 +152,7 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false); // 無論成功失敗，結束載入狀態
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -612,35 +516,4 @@ class _HomePageState extends State<HomePage> {
     ),
   );
 }
-}
-
-// 🚀 放在檔案最底部的頂層函數，專門用來在背景 Isolate 處理耗時的 List 與 Base64 轉換
-List<Map<String, dynamic>> _parseTeamMembersInBackground(List<dynamic> members) {
-  return members.map<Map<String, dynamic>>((m) {
-    
-    final profile = m['profile'] ?? {};
-    final teamInfo = m['teamInfo'] ?? m['TeamInfo'] ?? {};
-    
-    Uint8List? picBytes;
-    final picStr = profile['picture'] ?? profile['Picture'];
-    if (picStr != null && picStr.toString().isNotEmpty) {
-      try { picBytes = base64Decode(picStr.toString().split(',').last.replaceAll(RegExp(r'\s+'), '')); } catch (_) {}
-    }
-    
-    final String extractedMemberUUID = teamInfo['memberUUID'] ?? teamInfo['MemberUUID'] ?? m['MemberUUID'] ?? m['memberUUID'] ?? ''; // 🚀 優先從 teamInfo 中提取 memberUUID
-    debugPrint('[_parseTeamMembersInBackground] Extracted memberUUID: $extractedMemberUUID'); // 🚀 檢查提取到的 memberUUID
-    return {
-      'memberUUID': extractedMemberUUID, // 確保 MemberUUID 被解析並加入，並使用小寫鍵名
-      'name': profile['name'] ?? profile['Name'] ?? '未命名',
-      'picture': profile['picture'] ?? profile['Picture'],
-      'pictureBytes': picBytes, // 存入已解析的圖片
-      'phone': profile['phoneNumber'] ?? profile['PhoneNumber'] ?? '無',
-      'iceName': profile['iceName'] ?? profile['ICEName'] ?? '無',
-      'icePhone': profile['icePhoneNumber'] ?? profile['ICEPhoneNumber'] ?? '無',
-      'iceRelation': profile['iceRelation'] ?? profile['ICERelation'] ?? '',
-      'teamNote': teamInfo['note'] ?? teamInfo['Note'] ?? '', 
-      'personalNote': profile['note'] ?? profile['Note'] ?? '',
-      'isWorking': false,
-    };
-  }).toList();
 }
