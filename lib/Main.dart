@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import '../Authenticator/Login.dart';
-import '../Domain/Home/home_page.dart';
+import 'Views/Authenticator/Login.dart';
+import 'Views/Domain/Home/home_page.dart';
 
 void main() {
   runApp(const MyApp());
